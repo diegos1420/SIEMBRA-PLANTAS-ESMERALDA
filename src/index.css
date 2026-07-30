@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-verde-bosque: #3A5421;
+    --color-crema: #F4EFE3;
+    --color-ocre-tierra: #C96B28;
+    --color-gris-carbon: #2D2E26;
+  }
+  
+  body {
+    background-color: #F4EFE3;
+    color: #2D2E26;
+  }
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #E6DCC8;
+}
+::-webkit-scrollbar-thumb {
+  background: #3A5421;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2e431a;
+}
+
+/* Status Semáforo Styling */
+.status-badge {
+  @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide border;
+}
+
+.status-excelente {
+  @apply bg-emerald-50 text-[#3A5421] border-[#3A5421]/30;
+}
+
+.status-atencion {
+  @apply bg-amber-50 text-[#D9A726] border-[#D9A726]/40;
+}
+
+.status-riesgo {
+  @apply bg-orange-50 text-[#C96B28] border-[#C96B28]/40;
+}
+
+.status-critico {
+  @apply bg-red-50 text-[#B83232] border-[#B83232]/40;
+}
+
+.status-info {
+  @apply bg-gray-100 text-[#2D2E26] border-[#2D2E26]/30;
+}
+
+/* Card glass effect */
+.brand-card {
+  @apply bg-white/90 backdrop-blur-sm rounded-xl border border-brand-border p-5 shadow-card transition-all duration-200 hover:shadow-card-hover;
+}
+
+/* Corporate Buttons */
+.btn-primary {
+  @apply bg-brand-verde hover:bg-brand-verde-hover text-white font-medium px-4 py-2 rounded-lg transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2 text-sm;
+}
+
+.btn-secondary {
+  @apply bg-white hover:bg-brand-crema-light text-brand-carbon border border-brand-border font-medium px-4 py-2 rounded-lg transition-all active:scale-95 flex items-center justify-center gap-2 text-sm;
+}
+
+.btn-accent {
+  @apply bg-brand-ocre hover:bg-brand-ocre-hover text-white font-medium px-4 py-2 rounded-lg transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2 text-sm;
+}
