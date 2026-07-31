@@ -251,7 +251,7 @@ export async function generateReportePDF({ data, calc, proximosPasos = [], alert
       ['Capacidad total en bloques', `${fmtNum(calc.capP1Total)} pl.`, `${fmtNum(calc.capP2Total)} pl.`],
       ['Precio de siembra', `$${fmtNum(meta.plan1PrecioPorPlanta)} / planta`, `$${fmtNum(meta.plan2PrecioPorPlanta)} / planta`],
       ['Riego (primeras 4 semanas)', `${p1.riegoM3Dia} m³/día`, `${p2.riegoM3Dia} m³/día`],
-      ['Lavado de sustrato', `${p1.lavadoM3Dia} m³/día (días 1–12)`, 'No aplica'],
+      ['Lavado de sustrato', `${p1.lavadoM3Dia} m³/día (días 1–${p1.lavadoDias})`, `${p2.lavadoM3Dia} m³/día (días 1–${p2.lavadoDias})`],
       ['Bolsas de sustrato disponibles', `${fmtNum(calc.bolsasDisp)} / ${fmtNum(calc.bolsasReq)}  (${calc.pctBolsas}%)`, '—'],
       ['Déficit de bolsas', `${fmtNum(calc.bolsasFaltantes)} bolsas`, '—'],
     ],
@@ -334,21 +334,22 @@ export async function generateReportePDF({ data, calc, proximosPasos = [], alert
   table({
     head: [['Concepto', 'm³/día', '% de cap.', 'Periodo']],
     body: [
-      ['Riego Plan 1 (600 cc × 32.000 pl.)', (p1.riegoM3Dia || 0).toFixed(1), `${Math.round((p1.riegoM3Dia || 0) / cap * 100)}%`, 'Semanas 1–4'],
-      ['Lavado sustrato Plan 1 (1.85 L × 32.000 pl.)', (p1.lavadoM3Dia || 0).toFixed(1), `${Math.round((p1.lavadoM3Dia || 0) / cap * 100)}%`, 'Días 1–12'],
-      ['Riego Plan 2 (600 cc × 110.000 pl.)', (p2.riegoM3Dia || 0).toFixed(1), `${Math.round((p2.riegoM3Dia || 0) / cap * 100)}%`, 'Semanas 1–4'],
-      ['Pico máximo combinado (días 1–12)', calc.peakCombinado.toFixed(1), `${Math.round(calc.peakCombinado / cap * 100)}%`, 'Fase crítica'],
+      ['Riego Plan 1', (p1.riegoM3Dia || 0).toFixed(1), `${Math.round((p1.riegoM3Dia || 0) / cap * 100)}%`, 'Semanas 1–4'],
+      ['Lavado sustrato Plan 1', (p1.lavadoM3Dia || 0).toFixed(1), `${Math.round((p1.lavadoM3Dia || 0) / cap * 100)}%`, `Días 1–${p1.lavadoDias}`],
+      ['Riego Plan 2', (p2.riegoM3Dia || 0).toFixed(1), `${Math.round((p2.riegoM3Dia || 0) / cap * 100)}%`, 'Semanas 1–4'],
+      ['Lavado sustrato Plan 2', (p2.lavadoM3Dia || 0).toFixed(1), `${Math.round((p2.lavadoM3Dia || 0) / cap * 100)}%`, `Días 1–${p2.lavadoDias}`],
+      ['Pico máximo combinado', calc.peakCombinado.toFixed(1), `${Math.round(calc.peakCombinado / cap * 100)}%`, 'Fase crítica'],
       ['Margen disponible', calc.margen.toFixed(1), `${Math.round(calc.margen / cap * 100)}%`, calc.margen >= 0 ? 'OK' : 'DÉFICIT'],
     ],
     columnStyles: { 0: { cellWidth: CW - 26 - 26 - 36 }, 1: { halign: 'right', cellWidth: 26 }, 2: { halign: 'right', cellWidth: 26 }, 3: { cellWidth: 36 } },
     headColor: BLUE,
     didParseCell: (d) => {
-      if (d.section === 'body' && d.row.index >= 3) { d.cell.styles.fontStyle = 'bold'; }
+      if (d.section === 'body' && d.row.index >= 4) { d.cell.styles.fontStyle = 'bold'; }
     },
   });
   paragraph(
     calc.margen >= 0
-      ? `Capacidad suficiente: el pico combinado (${calc.peakCombinado.toFixed(1)} m³/día) deja ${calc.margen.toFixed(1)} m³/día de margen sobre los ${cap} m³/día instalados. Recomendación: ejecutar el lavado de sustrato del Plan 1 en turno nocturno (10 PM – 4 AM) durante los primeros 12 días.`
+      ? `Capacidad suficiente: el pico combinado (${calc.peakCombinado.toFixed(1)} m³/día) deja ${calc.margen.toFixed(1)} m³/día de margen sobre los ${cap} m³/día instalados. Recomendación: ejecutar el lavado de sustrato de ambos planes en turno nocturno (10 PM – 4 AM) durante los primeros días.`
       : `Déficit: el pico combinado (${calc.peakCombinado.toFixed(1)} m³/día) supera la capacidad instalada (${cap} m³/día) en ${Math.abs(calc.margen).toFixed(1)} m³/día. Se requiere escalonar riego y lavado.`,
     { color: calc.margen >= 0 ? VERDE : RED, bold: true }
   );

@@ -62,7 +62,7 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
 
     // Hídrico
     const peakP1 = (p1.lavadoM3Dia || 0) + (p1.riegoM3Dia || 0);
-    const peakP2 = p2.riegoM3Dia || 0;
+    const peakP2 = (p2.lavadoM3Dia || 0) + (p2.riegoM3Dia || 0);
     const peakCombinado = peakP1 + peakP2;
     const margen = (meta.capacidadHidricaDiaria || 180) - peakCombinado;
     const consumoBloquesRegistrado = bloques.reduce((s, b) => s + (b.consumoAguaEst || 0), 0);
@@ -186,20 +186,30 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
     }
   };
 
-  // ── Generación de PDF antiguo (rasterizado del HTML) — solo para comparar ──
+  // ── Generación de PDF antiguo (rasterizado del HTML) — formato anterior ────
   const handleDownloadPDFLegacy = async () => {
     setGeneratingLegacy(true);
     try {
       const html2pdf = (await import('html2pdf.js')).default;
       const element = reportRef.current;
-      const filename = `Informe_Gerencia_FORMATO_ANTERIOR_${new Date().toISOString().slice(0, 10)}.pdf`;
+      const filename = `Informe_Gerencia_Agroventure_${new Date().toISOString().slice(0, 10)}.pdf`;
       await html2pdf().set({
-        margin: [8, 8, 8, 8],
+        margin: [6, 6, 6, 6],
         filename,
-        image: { type: 'jpeg', quality: 0.97 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css'] }
+        // PNG conserva el texto nítido (sin artefactos de compresión JPEG)
+        image: { type: 'png' },
+        html2canvas: {
+          scale: 3,
+          useCORS: true,
+          logging: false,
+          windowWidth: element.scrollWidth,
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+        // Solo 'css': deja que las secciones fluyan libremente entre páginas y
+        // respeta .pdf-avoid-break en las tarjetas individuales — evitar
+        // 'avoid-all' es clave, ya que empujaba secciones completas a la
+        // siguiente página dejando grandes espacios en blanco.
+        pagebreak: { mode: ['css'], avoid: '.pdf-avoid-break' }
       }).from(element).save();
     } catch (err) {
       console.error('Error generando PDF (formato anterior):', err);
@@ -343,8 +353,9 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
               <span className="text-[10px] font-bold text-blue-700 uppercase block mb-1">Riego Primeras 4 Semanas</span>
               <div className="grid grid-cols-2 gap-1 text-[10px] text-blue-900">
                 <span>Riego: <strong>{p2.riegoM3Dia} m³/día</strong></span>
-                <span>Sin lavado de sustrato</span>
-                <span className="col-span-2">Total 4 semanas: <strong>{((p2.riegoM3Dia || 0) * 28).toFixed(0)} m³</strong></span>
+                <span>Lavado: <strong>{p2.lavadoM3Dia} m³/día (días 1-{p2.lavadoDias})</strong></span>
+                <span className="col-span-2">Pico máx: <strong>{((p2.lavadoM3Dia || 0) + (p2.riegoM3Dia || 0)).toFixed(1)} m³/día</strong></span>
+                <span className="col-span-2">Total 4 semanas (solo riego): <strong>{((p2.riegoM3Dia || 0) * 28).toFixed(0)} m³</strong></span>
               </div>
             </div>
             {/* Lotes */}
@@ -381,7 +392,7 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
       </div>
 
       {/* Resumen rápido */}
-      <div className="grid grid-cols-4 gap-3 mb-4 text-xs">
+      <div className="grid grid-cols-4 gap-3 mb-4 text-xs pdf-avoid-break">
         <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-center">
           <span className="text-gray-500 block text-[10px] uppercase">Registrados</span>
           <strong className="text-2xl font-display text-brand-carbon">{calc.totalBloques}</strong>
@@ -514,7 +525,7 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
         </h2>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mb-4 text-xs">
+      <div className="grid grid-cols-3 gap-3 mb-4 text-xs pdf-avoid-break">
         <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-center">
           <span className="text-gray-500 text-[10px] uppercase block">Total insumos</span>
           <strong className="text-2xl font-display text-brand-carbon">{insumos.length}</strong>
@@ -598,9 +609,10 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
             </thead>
             <tbody className="divide-y divide-gray-100">
               {[
-                { label: 'Riego Plan 1 (600 cc × 32.000 pl.)', m3: p1.riegoM3Dia || 0, periodo: 'Semanas 1–4', color: 'text-emerald-700' },
-                { label: 'Lavado sustrato Plan 1 (1.85 L × 32.000 pl.)', m3: p1.lavadoM3Dia || 0, periodo: 'Días 1–12', color: 'text-amber-700' },
-                { label: 'Riego Plan 2 (600 cc × 110.000 pl.)', m3: p2.riegoM3Dia || 0, periodo: 'Semanas 1–4', color: 'text-orange-700' },
+                { label: `Riego Plan 1 (${p1.riegoCcPorPlantaDia} cc × ${fmtNum(p1.plantas)} pl.)`, m3: p1.riegoM3Dia || 0, periodo: 'Semanas 1–4', color: 'text-emerald-700' },
+                { label: `Lavado sustrato Plan 1 (${p1.lavadoLtTotalPorPlanta} L/pl. × ${fmtNum(p1.plantas)} pl.)`, m3: p1.lavadoM3Dia || 0, periodo: `Días 1–${p1.lavadoDias}`, color: 'text-amber-700' },
+                { label: `Riego Plan 2 (${p2.riegoCcPorPlantaDia} cc × ${fmtNum(p2.plantas)} pl.)`, m3: p2.riegoM3Dia || 0, periodo: 'Semanas 1–4', color: 'text-orange-700' },
+                { label: `Lavado sustrato Plan 2 (${p2.lavadoLtTotalPorPlanta} L/pl. × ${fmtNum(p2.plantas)} pl.)`, m3: p2.lavadoM3Dia || 0, periodo: `Días 1–${p2.lavadoDias}`, color: 'text-amber-700' },
               ].map((r, i) => (
                 <tr key={i} className="hover:bg-blue-50/30">
                   <td className="p-2 text-gray-700">{r.label}</td>
@@ -627,7 +639,7 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
 
         {/* Semáforo hídrico */}
         <div className="space-y-3">
-          <div className={`p-4 rounded-xl border-2 ${calc.margen >= 20 ? 'bg-emerald-50 border-emerald-400' : calc.margen >= 0 ? 'bg-amber-50 border-amber-400' : 'bg-red-50 border-red-500'}`}>
+          <div className={`p-4 rounded-xl border-2 pdf-avoid-break ${calc.margen >= 20 ? 'bg-emerald-50 border-emerald-400' : calc.margen >= 0 ? 'bg-amber-50 border-amber-400' : 'bg-red-50 border-red-500'}`}>
             {calc.margen >= 0
               ? <CheckCircle2 className={`w-5 h-5 mb-2 ${calc.margen >= 20 ? 'text-emerald-600' : 'text-amber-600'}`} />
               : <AlertTriangle className="w-5 h-5 mb-2 text-red-600" />
@@ -643,7 +655,7 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
           </div>
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-[11px] text-blue-900">
             <strong className="block mb-1">Recomendación operativa:</strong>
-            Ejecutar lavado de sustrato Plan 1 en <strong>turno nocturno (10 PM – 4 AM)</strong> durante los primeros 12 días para no saturar la red en riego diurno.
+            Ejecutar el lavado de sustrato de <strong>ambos planes</strong> en <strong>turno nocturno (10 PM – 4 AM)</strong> durante los primeros {p1.lavadoDias} días para no saturar la red en riego diurno.
           </div>
         </div>
       </div>
@@ -662,7 +674,7 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
         </h2>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mb-4 text-xs">
+      <div className="grid grid-cols-3 gap-3 mb-4 text-xs pdf-avoid-break">
         <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-center">
           <span className="text-gray-500 text-[10px] uppercase block">Total registrado</span>
           <strong className="text-xl font-display text-brand-carbon">{fmtCOP(calc.totalCostos)}</strong>
@@ -693,8 +705,8 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
           {costos.map(c => (
             <tr key={c.id} className={c.esCritico && c.estadoFlujoCaja === 'PENDIENTE' ? 'bg-red-50/50 font-semibold' : ''}>
               <td className="p-2 text-brand-carbon">
-                {c.concepto}
-                {c.esCritico && <span className="ml-1.5 px-1 py-0.5 text-[9px] bg-red-600 text-white font-extrabold rounded">CRÍTICO</span>}
+                <span>{c.concepto}</span>
+                {c.esCritico && <span className="inline-block mt-1 ml-1.5 px-1 py-0.5 text-[9px] bg-red-600 text-white font-extrabold rounded align-middle">CRÍTICO</span>}
               </td>
               <td className="p-2 text-gray-500">{c.propietario}</td>
               <td className="p-2 text-right font-bold text-brand-carbon">{fmtCOPFull(c.montoCOP)}</td>
@@ -732,7 +744,7 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
             </span>
           </div>
           {calc.decisAbiertas.length > 0 ? calc.decisAbiertas.map(d => (
-            <div key={d.id} className="p-3 mb-2 bg-amber-50 border border-amber-200 rounded-lg text-xs space-y-1">
+            <div key={d.id} className="p-3 mb-2 bg-amber-50 border border-amber-200 rounded-lg text-xs space-y-1 pdf-avoid-break">
               <div className="flex justify-between gap-2">
                 <p className="font-bold text-brand-carbon">{d.titulo}</p>
                 <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[9px] font-bold rounded flex-shrink-0">
@@ -759,7 +771,7 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
             </span>
           </div>
           {calc.riesgosAbiertos.length > 0 ? calc.riesgosAbiertos.map(r => (
-            <div key={r.id} className={`p-3 mb-2 rounded-lg border text-xs space-y-1 ${r.impacto === 'ALTO' ? 'bg-red-50 border-red-300' : 'bg-amber-50 border-amber-200'}`}>
+            <div key={r.id} className={`p-3 mb-2 rounded-lg border text-xs space-y-1 pdf-avoid-break ${r.impacto === 'ALTO' ? 'bg-red-50 border-red-300' : 'bg-amber-50 border-amber-200'}`}>
               <div className="flex justify-between gap-2">
                 <p className="font-bold text-brand-carbon">{r.titulo}</p>
                 <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded flex-shrink-0 text-white ${r.impacto === 'ALTO' ? 'bg-red-600' : 'bg-amber-500'}`}>
@@ -848,7 +860,7 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
         </div>
         <div className="divide-y divide-gray-100">
           {proximosPasos.map((paso, i) => (
-            <div key={i} className="flex items-start gap-3 p-3 text-xs">
+            <div key={i} className="flex items-start gap-3 p-3 text-xs pdf-avoid-break">
               <div className="flex-shrink-0 w-6 h-6 rounded-full bg-brand-verde/10 text-brand-verde font-extrabold flex items-center justify-center">
                 {i + 1}
               </div>

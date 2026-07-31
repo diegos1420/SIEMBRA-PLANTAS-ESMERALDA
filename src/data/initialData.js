@@ -66,11 +66,11 @@ export const INITIAL_DATA = {
   planRiego: {
     plan1: {
       plantas: 32000,
-      // Lavado de sustrato (solo Plan 1, primeros 12 días)
-      lavadoLtTotalPorPlanta: 22,       // 22 L por planta en total
+      // Lavado de sustrato — 65 L por planta en total, primeros 12 días
+      lavadoLtTotalPorPlanta: 65,       // 65 L por planta en total
       lavadoDias: 12,
-      lavadoLtPorPlantaDia: 1.85,       // 1.85 L/planta/día
-      lavadoM3Dia: 59.2,                // 1.85 × 32.000 / 1000
+      lavadoLtPorPlantaDia: 5.42,       // 65 / 12 L/planta/día
+      lavadoM3Dia: 173.3,               // 5.42 × 32.000 / 1000
       // Riego primeras 4 semanas
       riegoCcPorPlantaDia: 600,
       riegoLtPorPlantaDia: 0.6,
@@ -79,6 +79,11 @@ export const INITIAL_DATA = {
     },
     plan2: {
       plantas: 110000,
+      // Lavado de sustrato — 7 L por planta en total, primeros 12 días
+      lavadoLtTotalPorPlanta: 7,        // 7 L por planta en total
+      lavadoDias: 12,
+      lavadoLtPorPlantaDia: 0.58,       // 7 / 12 L/planta/día
+      lavadoM3Dia: 64.2,                // 0.58 × 110.000 / 1000
       // Riego primeras 4 semanas
       riegoCcPorPlantaDia: 600,
       riegoLtPorPlantaDia: 0.6,

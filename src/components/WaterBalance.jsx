@@ -3,75 +3,64 @@ import { Droplets, AlertTriangle, CheckCircle2, Layers, Clock, Info } from 'luci
 
 export default function WaterBalance({ data }) {
   const { capacidadHidricaDiaria } = data.meta;
-  const { sustrato, planRiego } = data;
+  const { planRiego } = data;
   const [planActivo, setPlanActivo] = useState('PLAN1');
   const [incluirLavado, setIncluirLavado] = useState(true);
 
   const p1 = planRiego?.plan1 || {
-    plantas: 32000, lavadoLtPorPlantaDia: 1.85, lavadoM3Dia: 59.2,
+    plantas: 32000, lavadoLtTotalPorPlanta: 65, lavadoLtPorPlantaDia: 5.42, lavadoM3Dia: 173.3,
     lavadoDias: 12, riegoCcPorPlantaDia: 600, riegoM3Dia: 19.2, semanasRiego: 4
   };
   const p2 = planRiego?.plan2 || {
-    plantas: 110000, riegoCcPorPlantaDia: 600, riegoM3Dia: 66, semanasRiego: 4
+    plantas: 110000, lavadoLtTotalPorPlanta: 7, lavadoLtPorPlantaDia: 0.58, lavadoM3Dia: 64.2,
+    lavadoDias: 12, riegoCcPorPlantaDia: 600, riegoM3Dia: 66, semanasRiego: 4
   };
 
-  // Week-by-week schedule for Plan 1 (4 semanas + lavado primeros 12 días)
-  const semanasPlan1 = [
+  const p = planActivo === 'PLAN1' ? p1 : p2;
+
+  // Cronograma semana a semana — el lavado aplica igual a ambos planes:
+  // activo días 1 a lavadoDias (finaliza dentro de la semana 2), luego solo riego.
+  const buildSemanas = (plan) => [
     {
       semana: 1, dias: '1 – 7',
-      lavado: p1.lavadoM3Dia,    // días 1-7 → lavado activo
-      riego: p1.riegoM3Dia,
-      nota: `Lavado activo (días 1–7 de 12). Riego ${p1.riegoCcPorPlantaDia} cc/planta/día.`
+      lavado: plan.lavadoM3Dia,
+      riego: plan.riegoM3Dia,
+      nota: `Lavado activo (días 1–7 de ${plan.lavadoDias}). Riego ${plan.riegoCcPorPlantaDia} cc/planta/día.`
     },
     {
       semana: 2, dias: '8 – 14',
-      lavado: p1.lavadoM3Dia,    // días 8-12 lavado, días 13-14 sin lavado → promedio
-      lavadoParcial: true,       // lavado finaliza el día 12
-      riego: p1.riegoM3Dia,
-      nota: `Lavado activo días 8–12 (finaliza). Sin lavado días 13–14.`
+      lavado: plan.lavadoM3Dia,
+      lavadoParcial: true,
+      riego: plan.riegoM3Dia,
+      nota: `Lavado activo días 8–${plan.lavadoDias} (finaliza). Sin lavado el resto de la semana.`
     },
     {
       semana: 3, dias: '15 – 21',
       lavado: 0,
-      riego: p1.riegoM3Dia,
-      nota: `Sin lavado. Solo riego ${p1.riegoCcPorPlantaDia} cc/planta/día.`
+      riego: plan.riegoM3Dia,
+      nota: `Sin lavado. Solo riego ${plan.riegoCcPorPlantaDia} cc/planta/día.`
     },
     {
       semana: 4, dias: '22 – 28',
       lavado: 0,
-      riego: p1.riegoM3Dia,
-      nota: `Sin lavado. Solo riego ${p1.riegoCcPorPlantaDia} cc/planta/día.`
+      riego: plan.riegoM3Dia,
+      nota: `Sin lavado. Solo riego ${plan.riegoCcPorPlantaDia} cc/planta/día.`
     },
   ];
 
-  // Week-by-week for Plan 2
-  const semanasPlan2 = [1, 2, 3, 4].map((s) => ({
-    semana: s,
-    dias: `${(s - 1) * 7 + 1} – ${s * 7}`,
-    riego: p2.riegoM3Dia,
-    nota: `Riego ${p2.riegoCcPorPlantaDia} cc/planta/día × ${p2.plantas.toLocaleString('es-CO')} plantas.`
-  }));
+  const semanas = buildSemanas(p);
 
-  const semanas = planActivo === 'PLAN1' ? semanasPlan1 : semanasPlan2;
+  // Peak consumption during first lavadoDias days (riego + lavado) por plan
+  const peakPlan1 = (p1.lavadoM3Dia || 0) + (p1.riegoM3Dia || 0);
+  const peakPlan2 = (p2.lavadoM3Dia || 0) + (p2.riegoM3Dia || 0);
+  const peakCombinado = peakPlan1 + peakPlan2;
 
-  // Current day demand for gauge
-  const demandaRiego = planActivo === 'PLAN1' ? p1.riegoM3Dia : p2.riegoM3Dia;
-  const demandaLavado = planActivo === 'PLAN1' && incluirLavado ? p1.lavadoM3Dia : 0;
-  const consumoRiegoBase = data.bloques.reduce((sum, b) => sum + (b.consumoAguaEst || 0), 0);
-
-  // Peak consumption during first 12 days (Plan 1 with lavado)
-  const peakPlan1 = p1.lavadoM3Dia + p1.riegoM3Dia; // 59.2 + 19.2 = 78.4
-  const peakPlan2 = p2.riegoM3Dia; // 66
-  const peakCombinado = peakPlan1 + peakPlan2; // 78.4 + 66 = 144.4
-
-  const consumoActual = planActivo === 'PLAN1'
-    ? (incluirLavado ? p1.lavadoM3Dia : 0) + p1.riegoM3Dia
-    : p2.riegoM3Dia;
+  const consumoActual = (incluirLavado ? (p.lavadoM3Dia || 0) : 0) + (p.riegoM3Dia || 0);
 
   const pct = Math.round((consumoActual / capacidadHidricaDiaria) * 100);
 
-  const fmtM3 = (v) => `${v.toFixed(1)} m³`;
-  const fmtNum = (n) => n.toLocaleString('es-CO');
+  const fmtM3 = (v) => `${(v || 0).toFixed(1)} m³`;
+  const fmtNum = (n) => (n || 0).toLocaleString('es-CO');
 
   return (
     <div className="space-y-6">
@@ -114,13 +103,13 @@ export default function WaterBalance({ data }) {
         }
         <div className="text-xs">
           <strong className={peakCombinado > capacidadHidricaDiaria ? 'text-red-800' : 'text-emerald-800'}>
-            Pico Máximo Combinado (Plan 1 con lavado + Plan 2 riego) = {fmtM3(peakCombinado)} / día
+            Pico Máximo Combinado (Plan 1 con lavado + Plan 2 con lavado) = {fmtM3(peakCombinado)} / día
           </strong>
           <p className="text-gray-600 mt-0.5">
             Plan 1 pico: {fmtM3(peakPlan1)} (lavado {fmtM3(p1.lavadoM3Dia)} + riego {fmtM3(p1.riegoM3Dia)}) &nbsp;·&nbsp;
-            Plan 2: {fmtM3(peakPlan2)} &nbsp;·&nbsp;
+            Plan 2 pico: {fmtM3(peakPlan2)} (lavado {fmtM3(p2.lavadoM3Dia)} + riego {fmtM3(p2.riegoM3Dia)}) &nbsp;·&nbsp;
             Capacidad disponible: <strong>{capacidadHidricaDiaria} m³/día</strong> &nbsp;·&nbsp;
-            Margen: <strong className="text-emerald-700">{fmtM3(capacidadHidricaDiaria - peakCombinado)}</strong>
+            Margen: <strong className={capacidadHidricaDiaria - peakCombinado >= 0 ? 'text-emerald-700' : 'text-red-700'}>{fmtM3(capacidadHidricaDiaria - peakCombinado)}</strong>
           </p>
         </div>
       </div>
@@ -134,16 +123,14 @@ export default function WaterBalance({ data }) {
             <h3 className="font-display text-lg font-bold text-brand-carbon">
               Consumo Diario — {planActivo === 'PLAN1' ? 'Plan 1' : 'Plan 2'}
             </h3>
-            {planActivo === 'PLAN1' && (
-              <button
-                onClick={() => setIncluirLavado(!incluirLavado)}
-                className={`text-xs font-bold px-3 py-1 rounded-lg transition-all border ${
-                  incluirLavado ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'
-                }`}
-              >
-                {incluirLavado ? '+ Lavado de Sustrato' : 'Sin Lavado (solo riego)'}
-              </button>
-            )}
+            <button
+              onClick={() => setIncluirLavado(!incluirLavado)}
+              className={`text-xs font-bold px-3 py-1 rounded-lg transition-all border ${
+                incluirLavado ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'
+              }`}
+            >
+              {incluirLavado ? '+ Lavado de Sustrato' : 'Sin Lavado (solo riego)'}
+            </button>
           </div>
 
           <div className="space-y-2">
@@ -161,38 +148,21 @@ export default function WaterBalance({ data }) {
           </div>
 
           <div className="grid grid-cols-3 gap-3 pt-1 text-xs">
-            {planActivo === 'PLAN1' ? (
-              <>
-                <div className="p-2.5 bg-blue-50 rounded-lg border border-blue-100">
-                  <span className="text-gray-500 block">Riego Plan 1:</span>
-                  <strong className="text-blue-900 text-sm">{fmtM3(p1.riegoM3Dia)}</strong>
-                  <span className="text-[11px] text-gray-400 block">{p1.riegoCcPorPlantaDia} cc × {fmtNum(p1.plantas)} pl.</span>
-                </div>
-                <div className="p-2.5 bg-amber-50 rounded-lg border border-amber-100">
-                  <span className="text-gray-500 block">Lavado Sustrato:</span>
-                  <strong className="text-amber-900 text-sm">{fmtM3(p1.lavadoM3Dia)}</strong>
-                  <span className="text-[11px] text-gray-400 block">{p1.lavadoLtPorPlantaDia} L × {fmtNum(p1.plantas)} pl.</span>
-                </div>
-                <div className="p-2.5 bg-emerald-50 rounded-lg border border-emerald-100">
-                  <span className="text-gray-500 block">Margen Libre:</span>
-                  <strong className="text-emerald-900 text-sm">{fmtM3(Math.max(0, capacidadHidricaDiaria - consumoActual))}</strong>
-                  <span className="text-[11px] text-gray-400 block">de {capacidadHidricaDiaria} m³/día</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="p-2.5 bg-amber-50 rounded-lg border border-amber-100 col-span-2">
-                  <span className="text-gray-500 block">Riego Plan 2:</span>
-                  <strong className="text-amber-900 text-sm">{fmtM3(p2.riegoM3Dia)}</strong>
-                  <span className="text-[11px] text-gray-400 block">{p2.riegoCcPorPlantaDia} cc/planta/día × {fmtNum(p2.plantas)} plantas</span>
-                </div>
-                <div className="p-2.5 bg-emerald-50 rounded-lg border border-emerald-100">
-                  <span className="text-gray-500 block">Margen Libre:</span>
-                  <strong className="text-emerald-900 text-sm">{fmtM3(Math.max(0, capacidadHidricaDiaria - consumoActual))}</strong>
-                  <span className="text-[11px] text-gray-400 block">de {capacidadHidricaDiaria} m³/día</span>
-                </div>
-              </>
-            )}
+            <div className="p-2.5 bg-blue-50 rounded-lg border border-blue-100">
+              <span className="text-gray-500 block">{planActivo === 'PLAN1' ? 'Riego Plan 1:' : 'Riego Plan 2:'}</span>
+              <strong className="text-blue-900 text-sm">{fmtM3(p.riegoM3Dia)}</strong>
+              <span className="text-[11px] text-gray-400 block">{p.riegoCcPorPlantaDia} cc × {fmtNum(p.plantas)} pl.</span>
+            </div>
+            <div className="p-2.5 bg-amber-50 rounded-lg border border-amber-100">
+              <span className="text-gray-500 block">Lavado Sustrato:</span>
+              <strong className="text-amber-900 text-sm">{fmtM3(p.lavadoM3Dia)}</strong>
+              <span className="text-[11px] text-gray-400 block">{p.lavadoLtPorPlantaDia} L × {fmtNum(p.plantas)} pl.</span>
+            </div>
+            <div className="p-2.5 bg-emerald-50 rounded-lg border border-emerald-100">
+              <span className="text-gray-500 block">Margen Libre:</span>
+              <strong className="text-emerald-900 text-sm">{fmtM3(Math.max(0, capacidadHidricaDiaria - consumoActual))}</strong>
+              <span className="text-[11px] text-gray-400 block">de {capacidadHidricaDiaria} m³/día</span>
+            </div>
           </div>
         </div>
 
@@ -203,59 +173,35 @@ export default function WaterBalance({ data }) {
             <span>{planActivo === 'PLAN1' ? 'Plan 1 — Siembra Definitiva' : 'Plan 2 — Contingencia Vivero'}</span>
           </div>
           <div className="text-xs space-y-2 text-brand-carbon">
-            {planActivo === 'PLAN1' ? (
-              <>
-                <div className="flex justify-between border-b border-brand-border pb-1">
-                  <span>Plantas:</span>
-                  <strong>{fmtNum(p1.plantas)}</strong>
-                </div>
-                <div className="flex justify-between border-b border-brand-border pb-1">
-                  <span>Riego:</span>
-                  <strong>{p1.riegoCcPorPlantaDia} cc/planta/día</strong>
-                </div>
-                <div className="flex justify-between border-b border-brand-border pb-1">
-                  <span>Total riego diario:</span>
-                  <strong className="text-blue-700">{fmtM3(p1.riegoM3Dia)}</strong>
-                </div>
-                <div className="p-2 bg-amber-50 rounded border border-amber-200 space-y-1">
-                  <span className="font-bold text-amber-800 block">Lavado de Sustrato:</span>
-                  <div className="flex justify-between"><span>Total por planta:</span><strong>22 L</strong></div>
-                  <div className="flex justify-between"><span>Días de lavado:</span><strong>12 días</strong></div>
-                  <div className="flex justify-between"><span>L/planta/día:</span><strong>{p1.lavadoLtPorPlantaDia} L</strong></div>
-                  <div className="flex justify-between"><span>Total m³/día:</span><strong className="text-amber-700">{fmtM3(p1.lavadoM3Dia)}</strong></div>
-                </div>
-                <div className="flex justify-between font-bold pt-1">
-                  <span>Pico (riego + lavado):</span>
-                  <strong className={peakPlan1 > capacidadHidricaDiaria ? 'text-red-600' : 'text-brand-verde'}>{fmtM3(peakPlan1)}</strong>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex justify-between border-b border-brand-border pb-1">
-                  <span>Plantas:</span>
-                  <strong>{fmtNum(p2.plantas)}</strong>
-                </div>
-                <div className="flex justify-between border-b border-brand-border pb-1">
-                  <span>Riego:</span>
-                  <strong>{p2.riegoCcPorPlantaDia} cc/planta/día</strong>
-                </div>
-                <div className="flex justify-between border-b border-brand-border pb-1">
-                  <span>Total riego diario:</span>
-                  <strong className="text-amber-700">{fmtM3(p2.riegoM3Dia)}</strong>
-                </div>
-                <div className="flex justify-between border-b border-brand-border pb-1">
-                  <span>Semanas de riego:</span>
-                  <strong>4 semanas</strong>
-                </div>
-                <div className="flex justify-between border-b border-brand-border pb-1">
-                  <span>Total agua (28 días):</span>
-                  <strong>{fmtM3(p2.riegoM3Dia * 28)}</strong>
-                </div>
-                <div className="p-2 bg-blue-50 rounded border border-blue-200 text-[11px] text-blue-800">
-                  Sin lavado de sustrato. Plan 2 aplica sustrato alternativo de vivero.
-                </div>
-              </>
-            )}
+            <div className="flex justify-between border-b border-brand-border pb-1">
+              <span>Plantas:</span>
+              <strong>{fmtNum(p.plantas)}</strong>
+            </div>
+            <div className="flex justify-between border-b border-brand-border pb-1">
+              <span>Riego:</span>
+              <strong>{p.riegoCcPorPlantaDia} cc/planta/día</strong>
+            </div>
+            <div className="flex justify-between border-b border-brand-border pb-1">
+              <span>Total riego diario:</span>
+              <strong className={planActivo === 'PLAN1' ? 'text-blue-700' : 'text-amber-700'}>{fmtM3(p.riegoM3Dia)}</strong>
+            </div>
+            <div className="p-2 bg-amber-50 rounded border border-amber-200 space-y-1">
+              <span className="font-bold text-amber-800 block">Lavado de Sustrato:</span>
+              <div className="flex justify-between"><span>Total por planta:</span><strong>{p.lavadoLtTotalPorPlanta} L</strong></div>
+              <div className="flex justify-between"><span>Días de lavado:</span><strong>{p.lavadoDias} días</strong></div>
+              <div className="flex justify-between"><span>L/planta/día:</span><strong>{p.lavadoLtPorPlantaDia} L</strong></div>
+              <div className="flex justify-between"><span>Total m³/día:</span><strong className="text-amber-700">{fmtM3(p.lavadoM3Dia)}</strong></div>
+            </div>
+            <div className="flex justify-between font-bold pt-1">
+              <span>Pico (riego + lavado):</span>
+              <strong className={(p.lavadoM3Dia + p.riegoM3Dia) > capacidadHidricaDiaria ? 'text-red-600' : 'text-brand-verde'}>
+                {fmtM3((p.lavadoM3Dia || 0) + (p.riegoM3Dia || 0))}
+              </strong>
+            </div>
+            <div className="flex justify-between border-t border-brand-border pt-1">
+              <span>Semanas de riego:</span>
+              <strong>{p.semanasRiego || 4} semanas</strong>
+            </div>
           </div>
         </div>
       </div>
@@ -279,7 +225,7 @@ export default function WaterBalance({ data }) {
                 <th className="p-3">Semana</th>
                 <th className="p-3">Días</th>
                 <th className="p-3">Riego (m³/día)</th>
-                {planActivo === 'PLAN1' && <th className="p-3">Lavado (m³/día)</th>}
+                <th className="p-3">Lavado (m³/día)</th>
                 <th className="p-3">Total Diario</th>
                 <th className="p-3">% Capacidad</th>
                 <th className="p-3">Estado</th>
@@ -288,7 +234,7 @@ export default function WaterBalance({ data }) {
             </thead>
             <tbody className="divide-y divide-brand-border">
               {semanas.map((s) => {
-                const lavadoFila = planActivo === 'PLAN1' ? (s.lavado || 0) : 0;
+                const lavadoFila = s.lavado || 0;
                 const totalFila = s.riego + lavadoFila;
                 const pctFila = Math.round((totalFila / capacidadHidricaDiaria) * 100);
                 const hayLavado = lavadoFila > 0;
@@ -297,15 +243,13 @@ export default function WaterBalance({ data }) {
                     <td className="p-3 font-extrabold text-brand-carbon">Semana {s.semana}</td>
                     <td className="p-3 text-brand-carbon-muted">Días {s.dias}</td>
                     <td className="p-3 font-bold text-blue-700">{fmtM3(s.riego)}</td>
-                    {planActivo === 'PLAN1' && (
-                      <td className="p-3">
-                        {lavadoFila > 0 ? (
-                          <span className="font-bold text-amber-700">{fmtM3(lavadoFila)}{s.lavadoParcial ? '*' : ''}</span>
-                        ) : (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </td>
-                    )}
+                    <td className="p-3">
+                      {lavadoFila > 0 ? (
+                        <span className="font-bold text-amber-700">{fmtM3(lavadoFila)}{s.lavadoParcial ? '*' : ''}</span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
                     <td className="p-3 font-extrabold text-brand-carbon">{fmtM3(totalFila)}</td>
                     <td className="p-3">
                       <div className="flex items-center gap-2">
@@ -333,20 +277,16 @@ export default function WaterBalance({ data }) {
           </table>
         </div>
 
-        {planActivo === 'PLAN1' && (
-          <p className="text-[11px] text-amber-700 italic px-1">
-            * Semana 2: lavado finaliza el día 12 (de los 12 días totales). Días 13–14 solo riego.
-          </p>
-        )}
+        <p className="text-[11px] text-amber-700 italic px-1">
+          * Semana 2: lavado finaliza el día {p.lavadoDias} (de los {p.lavadoDias} días totales). El resto de la semana solo riego.
+        </p>
 
         <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 text-xs text-blue-900 flex items-start gap-2">
           <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <span>
             Este cronograma aplica <strong>únicamente a las primeras 4 semanas</strong> post-siembra.
-            {planActivo === 'PLAN1'
-              ? ` El lavado de sustrato (22 L/planta, 1.85 L/día) se realiza en los primeros 12 días y se recomienda en turno nocturno (10PM–4AM) para no sobrecargar la red.`
-              : ` Plan 2 no requiere lavado de sustrato. Riego estándar de ${p2.riegoCcPorPlantaDia} cc/planta/día.`
-            }
+            El lavado de sustrato ({p.lavadoLtTotalPorPlanta} L/planta, {p.lavadoLtPorPlantaDia} L/día) se realiza en los primeros {p.lavadoDias} días
+            y se recomienda en turno nocturno (10PM–4AM) para no sobrecargar la red.
           </span>
         </div>
       </div>

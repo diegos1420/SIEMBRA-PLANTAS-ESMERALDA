@@ -74,3 +74,10 @@
 .btn-accent {
   @apply bg-brand-ocre hover:bg-brand-ocre-hover text-white font-medium px-4 py-2 rounded-lg transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2 text-sm;
 }
+
+/* Evita que html2pdf corte una tarjeta/fila a la mitad entre páginas,
+   dejando espacios en blanco al final de una hoja */
+.pdf-avoid-break {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}

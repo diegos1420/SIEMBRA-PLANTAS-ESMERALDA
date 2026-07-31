@@ -41,7 +41,7 @@ export default function TimelineSustrato({ eventos = [], compact = false }) {
           const cfg = TIPO_CONFIG[ev.tipo] || TIPO_CONFIG.HITO;
           const Icon = cfg.icon;
           return (
-            <div key={ev.id} className="relative flex gap-4">
+            <div key={ev.id} className="relative flex gap-4 pdf-avoid-break">
               {/* Nodo */}
               <div className={`relative z-10 flex-shrink-0 w-8 h-8 rounded-full ${cfg.dot} ring-4 ${cfg.ring} flex items-center justify-center`}>
                 <Icon className="w-4 h-4 text-white" />
