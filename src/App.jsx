@@ -22,37 +22,47 @@ export default function App() {
   const [modalType, setModalType] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
   const [formData, setFormData] = useState({});
+  const [syncError, setSyncError] = useState(null);
 
   // Carga inicial desde Supabase
   useEffect(() => {
+    if (!supabase) {
+      setSyncError('Configuración de Supabase ausente (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY). Los datos no se guardarán.');
+      setLoading(false);
+      return;
+    }
     supabase
       .from('app_state')
       .select('data')
       .eq('id', APP_STATE_ID)
-      .single()
-      .then(({ data: row }) => {
-        if (row?.data) {
+      .maybeSingle()
+      .then(({ data: row, error }) => {
+        if (error) {
+          setSyncError('No se pudo conectar con la base de datos: ' + error.message);
+        } else if (row?.data) {
           const saved = row.data;
           setData({
             ...INITIAL_DATA,
             ...saved,
             meta: { ...INITIAL_DATA.meta, ...(saved.meta || {}) },
             sustrato: { ...INITIAL_DATA.sustrato, ...(saved.sustrato || {}) },
-            bloques: saved.bloques?.length ? saved.bloques : INITIAL_DATA.bloques,
           });
           setPlanVersion(saved.planVersion || 'PLAN1');
         }
         setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      });
   }, []);
 
   // Guarda en Supabase cada vez que cambia data o planVersion
   useEffect(() => {
-    if (loading) return;
+    if (loading || !supabase) return;
     supabase
       .from('app_state')
-      .upsert({ id: APP_STATE_ID, data: { ...data, planVersion } }, { onConflict: 'id' });
+      .upsert({ id: APP_STATE_ID, data: { ...data, planVersion } }, { onConflict: 'id' })
+      .then(({ error }) => {
+        if (error) setSyncError('Error al guardar en la base de datos: ' + error.message);
+        else setSyncError(null);
+      });
   }, [data, planVersion, loading]);
 
   const closeModal = () => {
@@ -66,7 +76,9 @@ export default function App() {
     if (window.confirm("¿Deseas restablecer todos los datos a la configuración inicial de Finca La Esmeralda?")) {
       setData(INITIAL_DATA);
       setPlanVersion('PLAN1');
-      supabase.from('app_state').upsert({ id: APP_STATE_ID, data: { ...INITIAL_DATA, planVersion: 'PLAN1' } }, { onConflict: 'id' });
+      if (supabase) {
+        supabase.from('app_state').upsert({ id: APP_STATE_ID, data: { ...INITIAL_DATA, planVersion: 'PLAN1' } }, { onConflict: 'id' });
+      }
     }
   };
 
@@ -393,6 +405,12 @@ export default function App() {
         onExportData={handleExportData}
         pancogerPendiente={pancogerPendiente}
       />
+
+      {syncError && (
+        <div className="bg-red-600 text-white text-xs font-semibold px-4 py-2 text-center">
+          ⚠ {syncError} — los cambios pueden no estar guardándose en la base de datos.
+        </div>
+      )}
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {activeTab === 'dashboard' && (
