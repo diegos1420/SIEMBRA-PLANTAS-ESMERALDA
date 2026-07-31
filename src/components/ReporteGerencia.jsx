@@ -171,21 +171,12 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
     return pasos;
   }, [calc]);
 
-  // ── Generación de PDF ─────────────────────────────────────────────────────
+  // ── Generación de PDF vectorial (texto real, nítido y paginado) ───────────
   const handleDownloadPDF = async () => {
     setGeneratingPDF(true);
     try {
-      const html2pdf = (await import('html2pdf.js')).default;
-      const element = reportRef.current;
-      const filename = `Informe_Gerencia_Agroventure_${new Date().toISOString().slice(0, 10)}.pdf`;
-      await html2pdf().set({
-        margin: [8, 8, 8, 8],
-        filename,
-        image: { type: 'jpeg', quality: 0.97 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css'] }
-      }).from(element).save();
+      const { generateReportePDF } = await import('../utils/pdfReport');
+      await generateReportePDF({ data, calc, proximosPasos, alertasCriticas, fechaInforme, horaInforme });
     } catch (err) {
       console.error('Error generando PDF:', err);
       alert('Error al generar el PDF. Intente de nuevo.');
