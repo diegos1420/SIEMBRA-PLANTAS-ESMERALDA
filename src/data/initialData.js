@@ -1,3 +1,39 @@
+import { crearChecklistVacio } from '../utils/checklist';
+
+function checklistBloque1y3() {
+  return {
+    grupos: [
+      {
+        nombre: 'Infraestructura',
+        items: [
+          { nombre: 'Adecuación del terreno', pct: 100, estado: 'CULMINADO', nota: '' },
+          { nombre: 'Perforaciones', pct: 100, estado: 'CULMINADO', nota: '' },
+          { nombre: 'Cimentación', pct: 100, estado: 'CULMINADO', nota: '' },
+          { nombre: 'Estructuras (Canaletas, perfiles, cerchas, W, X, Guayas)', pct: 80, estado: 'EN_CURSO', nota: 'Falta hacer unas canaletas' },
+          { nombre: 'Riostras', pct: 60, estado: 'EN_CURSO', nota: '' },
+          { nombre: 'Antiheladas', pct: 80, estado: 'EN_CURSO', nota: 'Falta una zanja pequeña' },
+          { nombre: 'Ground Cover invernadero (m²)', pct: 0, estado: 'PENDIENTE', nota: '' },
+          { nombre: 'Ground Cover drenaje (m lineales)', pct: 0, estado: 'PENDIENTE', nota: '' },
+          { nombre: 'Cubiertas plásticas', pct: 0, estado: 'PENDIENTE', nota: '' },
+          { nombre: 'Bajantes', pct: 0, estado: 'PENDIENTE', nota: '' },
+          { nombre: 'Tornillería', pct: 0, estado: 'PENDIENTE', nota: '' },
+          { nombre: 'Malla perimetral', pct: 0, estado: 'PENDIENTE', nota: '' },
+        ]
+      },
+      {
+        nombre: 'Sistema de Riego',
+        items: [
+          { nombre: 'Zanjas de distribuidoras', pct: 100, estado: 'CULMINADO', nota: '' },
+          { nombre: 'Distribución de válvulas y bigotes para la línea de riego', pct: 100, estado: 'CULMINADO', nota: '' },
+          { nombre: 'Zanjas de antiheladas', pct: 100, estado: 'CULMINADO', nota: '' },
+          { nombre: 'Estacas', pct: 50, estado: 'EN_CURSO', nota: 'No están al final de la línea' },
+          { nombre: 'Líneas de goteo', pct: 0, estado: 'PENDIENTE', nota: '' },
+        ]
+      }
+    ]
+  };
+}
+
 export const INITIAL_DATA = {
   meta: {
     finca: "Finca La Esmeralda",
@@ -79,7 +115,7 @@ export const INITIAL_DATA = {
       consumoAguaEst: 9,
       destinoNotas: "",
       fechaDisponibilidad: "",
-      infraestructura: { techo: false, cubierta: false, tuberia: false, bigotes: false, goteros: false, lineas: false, antiheladas: false }
+      infraestructura: crearChecklistVacio()
     },
     {
       id: "bloque_4",
@@ -93,7 +129,7 @@ export const INITIAL_DATA = {
       consumoAguaEst: 6,
       destinoNotas: "",
       fechaDisponibilidad: "",
-      infraestructura: { techo: false, cubierta: false, tuberia: false, bigotes: false, goteros: false, lineas: false, antiheladas: false }
+      infraestructura: crearChecklistVacio()
     },
     {
       id: "bloque_2",
@@ -107,7 +143,35 @@ export const INITIAL_DATA = {
       consumoAguaEst: 4,
       destinoNotas: "",
       fechaDisponibilidad: "",
-      infraestructura: { techo: false, cubierta: false, tuberia: false, bigotes: false, goteros: false, lineas: false, antiheladas: false }
+      infraestructura: crearChecklistVacio()
+    },
+    {
+      id: "bloque_1",
+      codigo: "Bloque 1",
+      propietarioInfra: "Agroventure",
+      propietarioPlantas: "Agroventure",
+      area: 0,
+      capacidadPlan1: 0,
+      capacidadPlan2: 0,
+      valvulas: 0,
+      consumoAguaEst: 0,
+      destinoNotas: "",
+      fechaDisponibilidad: "",
+      infraestructura: checklistBloque1y3()
+    },
+    {
+      id: "bloque_3",
+      codigo: "Bloque 3",
+      propietarioInfra: "Agroventure",
+      propietarioPlantas: "Agroventure",
+      area: 0,
+      capacidadPlan1: 0,
+      capacidadPlan2: 0,
+      valvulas: 0,
+      consumoAguaEst: 0,
+      destinoNotas: "",
+      fechaDisponibilidad: "",
+      infraestructura: checklistBloque1y3()
     }
   ],
 

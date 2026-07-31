@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { INITIAL_DATA } from './data/initialData';
 import { supabase, APP_STATE_ID } from './lib/supabase';
+import { crearChecklistVacio, isBlockReady } from './utils/checklist';
 import Navbar from './components/Navbar';
 import Dashboard from './components/Dashboard';
 import BlockManagement from './components/BlockManagement';
@@ -92,14 +93,12 @@ export default function App() {
     a.remove();
   };
 
-  // ── Infraestructura toggle ────────────────────────────────────────────────
-  const handleToggleInfraItem = (blockId, infraKey) => {
+  // ── Checklist de infraestructura ──────────────────────────────────────────
+  const handleUpdateChecklist = (blockId, grupos) => {
     setData(prev => ({
       ...prev,
       bloques: prev.bloques.map(b =>
-        b.id === blockId
-          ? { ...b, infraestructura: { ...b.infraestructura, [infraKey]: !b.infraestructura[infraKey] } }
-          : b
+        b.id === blockId ? { ...b, infraestructura: { grupos } } : b
       )
     }));
   };
@@ -190,11 +189,7 @@ export default function App() {
     const totalPlantasAsignadas = (data.siembras || []).reduce((sum, s) => sum + Math.round(s?.cantidad || 0), 0);
     const plantasFaltantes = Math.max(0, totalPlantasObjetivo - totalPlantasAsignadas);
     const totalBloques = data.bloques.length;
-    const bloquesListos = data.bloques.filter(b => {
-      if (!b.infraestructura) return false;
-      const installed = Object.values(b.infraestructura).filter(Boolean).length;
-      return installed === Object.keys(b.infraestructura).length;
-    }).length;
+    const bloquesListos = data.bloques.filter(isBlockReady).length;
     const consumoRiegoDiario = data.bloques.reduce((sum, b) => sum + (b.consumoAguaEst || 0), 0);
     const consumoLavadoSustrato = data.sustrato.volumenAguaLavadoM3;
     const consumoHidricoTotal = consumoRiegoDiario + consumoLavadoSustrato;
@@ -248,7 +243,7 @@ export default function App() {
           consumoAguaEst: parseInt(formData.consumoAguaEst) || 20,
           destinoNotas: formData.destinoNotas || '',
           fechaDisponibilidad: formData.fechaDisponibilidad || '',
-          infraestructura: { techo: false, cubierta: false, tuberia: false, bigotes: false, goteros: false, lineas: false, antiheladas: false }
+          infraestructura: crearChecklistVacio()
         };
         setData(prev => ({ ...prev, bloques: [...prev.bloques, newBlock] }));
       }
@@ -425,7 +420,7 @@ export default function App() {
         {activeTab === 'bloques' && (
           <BlockManagement
             data={data}
-            onToggleInfraItem={handleToggleInfraItem}
+            onUpdateChecklist={handleUpdateChecklist}
             onOpenAddBlockModal={() => { setEditingItem(null); setFormData({}); setModalType('block'); }}
             onOpenEditBlockModal={(b) => openEdit('block', b)}
             onDeleteBlock={handleDeleteBlock}

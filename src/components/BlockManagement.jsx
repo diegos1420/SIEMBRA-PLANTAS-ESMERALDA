@@ -1,31 +1,23 @@
 import React, { useState } from 'react';
 import {
-  Boxes, CheckSquare, Square, Plus, Edit3, Filter, Trash2
+  Boxes, Plus, Edit3, Filter, Trash2, ClipboardList
 } from 'lucide-react';
+import ChecklistEditModal from './ChecklistEditModal';
+import { getGroupPct, getBlockPct, isBlockReady, ESTADO_COLORS, ESTADO_LABELS } from '../utils/checklist';
 
 export default function BlockManagement({
   data,
-  onToggleInfraItem,
+  onUpdateChecklist,
   onOpenAddBlockModal,
   onOpenEditBlockModal,
   onDeleteBlock
 }) {
   const [filterOwner, setFilterOwner] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState('ALL');
-
-  const infraLabels = {
-    techo: 'Techo Estructura',
-    cubierta: 'Cubierta Plástica',
-    tuberia: 'Tubería Matriz',
-    bigotes: 'Bigotes / Estacas',
-    goteros: 'Goteros Instalados',
-    lineas: 'Líneas de Riego',
-    antiheladas: 'Tubería Antiheladas'
-  };
+  const [checklistBlock, setChecklistBlock] = useState(null);
 
   const filteredBloques = data.bloques.filter((b) => {
-    const installedCount = Object.values(b.infraestructura).filter(Boolean).length;
-    const isReady = installedCount === Object.keys(b.infraestructura).length;
+    const isReady = isBlockReady(b);
 
     if (filterOwner !== 'ALL' && b.propietarioInfra !== filterOwner) return false;
     if (filterStatus === 'READY' && !isReady) return false;
@@ -35,7 +27,7 @@ export default function BlockManagement({
 
   return (
     <div className="space-y-6">
-      
+
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-brand-border shadow-card">
         <div>
@@ -46,7 +38,7 @@ export default function BlockManagement({
             </h2>
           </div>
           <p className="text-xs text-brand-carbon-muted mt-1">
-            Checklist técnico en tiempo real para habilitación de bloques y siembra.
+            Trazabilidad de ejecución por bloque: Infraestructura y Sistema de Riego.
           </p>
         </div>
 
@@ -94,19 +86,18 @@ export default function BlockManagement({
       {/* Blocks Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredBloques.map((bloque) => {
-          const keys = Object.keys(bloque.infraestructura);
-          const installedCount = Object.values(bloque.infraestructura).filter(Boolean).length;
-          const pct = Math.round((installedCount / keys.length) * 100);
-          const isReady = installedCount === keys.length;
+          const pct = getBlockPct(bloque);
+          const isReady = isBlockReady(bloque);
+          const grupos = bloque.infraestructura?.grupos || [];
 
           return (
-            <div 
+            <div
               key={bloque.id}
               className={`brand-card relative flex flex-col justify-between space-y-4 border-2 transition-all ${
-                isReady 
-                  ? 'border-brand-verde/60 bg-emerald-50/30' 
-                  : pct >= 60 
-                  ? 'border-amber-300 bg-amber-50/20' 
+                isReady
+                  ? 'border-brand-verde/60 bg-emerald-50/30'
+                  : pct >= 60
+                  ? 'border-amber-300 bg-amber-50/20'
                   : 'border-red-300 bg-red-50/20'
               }`}
             >
@@ -170,53 +161,56 @@ export default function BlockManagement({
                   </div>
                 </div>
 
-                {/* Progress bar */}
-                <div className="mt-3 space-y-1">
-                  <div className="flex justify-between text-[11px] font-medium text-brand-carbon">
-                    <span>Avance de Infraestructura</span>
-                    <span>{installedCount} de {keys.length} ítems</span>
+                {/* Checklist por grupo */}
+                <div className="mt-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-brand-carbon-muted uppercase tracking-wider">
+                      Avance de Ejecución
+                    </span>
+                    <button
+                      onClick={() => setChecklistBlock(bloque)}
+                      className="flex items-center gap-1 text-[11px] font-semibold text-brand-verde hover:underline"
+                    >
+                      <ClipboardList className="w-3.5 h-3.5" />
+                      Editar Checklist
+                    </button>
                   </div>
-                  <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full transition-all duration-300 ${
-                        isReady ? 'bg-brand-verde' : pct >= 60 ? 'bg-amber-500' : 'bg-red-500'
-                      }`}
-                      style={{ width: `${pct}%` }}
-                    ></div>
-                  </div>
-                </div>
 
-                {/* Interactive Checklist */}
-                <div className="mt-4 space-y-2">
-                  <span className="text-xs font-semibold text-brand-carbon-muted uppercase tracking-wider block">
-                    Checklist de Infraestructura (Hacer Clic para actualizar):
-                  </span>
-
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {keys.map((key) => {
-                      const isInstalled = bloque.infraestructura[key];
-                      return (
-                        <button
-                          key={key}
-                          onClick={() => onToggleInfraItem(bloque.id, key)}
-                          className={`flex items-center gap-2 p-2 rounded-md text-xs font-medium text-left transition-all border ${
-                            isInstalled 
-                              ? 'bg-emerald-100/70 border-emerald-300 text-emerald-900' 
-                              : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
-                          }`}
-                        >
-                          {isInstalled ? (
-                            <CheckSquare className="w-4 h-4 text-brand-verde flex-shrink-0" />
-                          ) : (
-                            <Square className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                          )}
-                          <span className={isInstalled ? 'line-through text-emerald-950 font-semibold' : ''}>
-                            {infraLabels[key]}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {grupos.map(grupo => {
+                    const gpct = getGroupPct(grupo);
+                    const pendientes = grupo.items.filter(i => (i.pct || 0) < 100);
+                    return (
+                      <div key={grupo.nombre} className="space-y-1.5">
+                        <div className="flex justify-between text-[11px] font-medium text-brand-carbon">
+                          <span>{grupo.nombre}</span>
+                          <span>{gpct}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full ${gpct === 100 ? 'bg-brand-verde' : gpct >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
+                            style={{ width: `${gpct}%` }}
+                          ></div>
+                        </div>
+                        {pendientes.length > 0 && (
+                          <div className="space-y-0.5">
+                            {pendientes.slice(0, 3).map(item => (
+                              <div key={item.nombre} className="flex items-center justify-between text-[10px] bg-white/70 rounded px-2 py-1 border border-brand-border/40">
+                                <span className="text-brand-carbon-muted truncate flex-1">{item.nombre}</span>
+                                <span className={`ml-2 px-1.5 py-0.5 rounded font-bold flex-shrink-0 ${ESTADO_COLORS[item.estado]?.bg} ${ESTADO_COLORS[item.estado]?.text}`}>
+                                  {item.pct}% · {ESTADO_LABELS[item.estado]}
+                                </span>
+                              </div>
+                            ))}
+                            {pendientes.length > 3 && (
+                              <p className="text-[10px] text-brand-carbon-muted italic pl-2">
+                                +{pendientes.length - 3} ítem(s) más pendientes...
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -230,6 +224,16 @@ export default function BlockManagement({
           );
         })}
       </div>
+
+      <ChecklistEditModal
+        key={checklistBlock?.id || 'none'}
+        bloque={checklistBlock}
+        onClose={() => setChecklistBlock(null)}
+        onSave={(grupos) => {
+          onUpdateChecklist(checklistBlock.id, grupos);
+          setChecklistBlock(null);
+        }}
+      />
 
     </div>
   );

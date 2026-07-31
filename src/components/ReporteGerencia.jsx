@@ -5,16 +5,7 @@ import {
   ShieldAlert, Lightbulb, Boxes, TrendingUp, XCircle,
   RefreshCw
 } from 'lucide-react';
-
-const infraLabels = {
-  techo: 'Techo',
-  cubierta: 'Cubierta',
-  tuberia: 'Tubería Matriz',
-  bigotes: 'Bigotes',
-  goteros: 'Goteros',
-  lineas: 'Líneas Riego',
-  antiheladas: 'Antiheladas'
-};
+import { getGroupPct, getBlockPct, isBlockReady, getPendientes, ESTADO_COLORS, ESTADO_LABELS } from '../utils/checklist';
 
 export default function ReporteGerencia({ data, planVersion, helperCalculations }) {
   const reportRef = useRef(null);
@@ -44,13 +35,10 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
     // Bloques
     const totalBloques = bloques.length;
     const bloqueStats = bloques.map(b => {
-      const keys = b.infraestructura ? Object.keys(b.infraestructura) : [];
-      const done = b.infraestructura ? Object.values(b.infraestructura).filter(Boolean).length : 0;
-      const pct = keys.length > 0 ? Math.round((done / keys.length) * 100) : 0;
-      const faltantes = b.infraestructura
-        ? Object.entries(b.infraestructura).filter(([, v]) => !v).map(([k]) => infraLabels[k] || k)
-        : [];
-      return { ...b, done, total: keys.length, pct, isReady: done === keys.length, faltantes };
+      const pct = getBlockPct(b);
+      const grupos = (b.infraestructura?.grupos || []).map(g => ({ ...g, pct: getGroupPct(g) }));
+      const pendientes = getPendientes(b);
+      return { ...b, pct, grupos, pendientes, isReady: isBlockReady(b) };
     });
     const bloquesListos = bloqueStats.filter(b => b.isReady).length;
     const bloquesConAlerta = bloqueStats.filter(b => !b.isReady);
@@ -319,13 +307,13 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
             </div>
 
             {/* Ficha por bloque */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {calc.bloqueStats.map(b => (
                 <div key={b.id} className={`rounded-xl border p-4 text-xs space-y-3 ${semaforoBg(b.pct)}`}>
                   <div className="flex items-center justify-between">
                     <span className="font-display font-bold text-sm text-brand-carbon">{b.codigo}</span>
                     <span className={`font-extrabold text-sm ${semaforoText(b.pct)}`}>
-                      {b.isReady ? '✓ LISTO' : `${b.pct}%`}
+                      {b.isReady ? '✓ LISTO' : `${b.pct}% avance`}
                     </span>
                   </div>
 
@@ -346,26 +334,38 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
                     </div>
                   </div>
 
-                  {/* Infraestructura */}
-                  <div>
-                    <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Infraestructura ({b.done}/{b.total}):</span>
-                    <div className="grid grid-cols-2 gap-0.5">
-                      {b.infraestructura && Object.entries(b.infraestructura).map(([k, v]) => (
-                        <div key={k} className={`flex items-center gap-1 text-[10px] ${v ? 'text-emerald-700' : 'text-red-600 font-semibold'}`}>
-                          {v ? <CheckCircle2 className="w-3 h-3 flex-shrink-0" /> : <XCircle className="w-3 h-3 flex-shrink-0" />}
-                          <span>{infraLabels[k] || k}</span>
+                  {/* Grupos de checklist (trazabilidad) */}
+                  {b.grupos.map(grupo => {
+                    const pendientesGrupo = grupo.items.filter(i => (i.pct || 0) < 100);
+                    return (
+                      <div key={grupo.nombre} className="bg-white/70 rounded-lg p-2 border border-gray-200">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-bold text-gray-600 uppercase">{grupo.nombre}</span>
+                          <span className={`text-[10px] font-bold ${semaforoText(grupo.pct)}`}>{grupo.pct}%</span>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Alertas faltantes */}
-                  {b.faltantes.length > 0 && (
-                    <div className="p-2 bg-red-100/80 border border-red-300 rounded text-[10px] text-red-800">
-                      <strong className="block">⚠ Falta para siembra:</strong>
-                      {b.faltantes.join(', ')}
-                    </div>
-                  )}
+                        <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden mb-1.5">
+                          <div className={`h-full ${semaforo(grupo.pct)}`} style={{ width: `${grupo.pct}%` }}></div>
+                        </div>
+                        {pendientesGrupo.length === 0 ? (
+                          <p className="text-[10px] text-emerald-700 font-semibold">✓ Todos los ítems culminados</p>
+                        ) : (
+                          <div className="space-y-0.5">
+                            {pendientesGrupo.map(item => (
+                              <div key={item.nombre} className="flex items-start justify-between gap-2 text-[10px]">
+                                <span className="text-gray-600 flex-1">
+                                  {item.nombre}
+                                  {item.nota && <span className="text-gray-400 italic"> — {item.nota}</span>}
+                                </span>
+                                <span className={`px-1.5 py-0.5 rounded font-bold flex-shrink-0 ${ESTADO_COLORS[item.estado]?.bg} ${ESTADO_COLORS[item.estado]?.text}`}>
+                                  {item.pct}%
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
 
                   {b.propietarioInfra && (
                     <div className="flex justify-between text-[10px] text-gray-500 pt-1 border-t border-gray-200/60">
@@ -376,7 +376,7 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
                 </div>
               ))}
               {calc.totalBloques === 0 && (
-                <div className="col-span-3 text-center text-xs text-gray-400 py-6 bg-gray-50 rounded-lg border">
+                <div className="col-span-2 text-center text-xs text-gray-400 py-6 bg-gray-50 rounded-lg border">
                   No hay bloques registrados.
                 </div>
               )}

@@ -1,18 +1,19 @@
 import React from 'react';
-import { 
-  Sprout, 
-  Boxes, 
-  Droplets, 
-  AlertTriangle, 
-  DollarSign, 
-  CheckCircle2, 
-  Clock, 
+import {
+  Sprout,
+  Boxes,
+  Droplets,
+  AlertTriangle,
+  DollarSign,
+  CheckCircle2,
+  Clock,
   ArrowRight,
   ShieldAlert,
   Flame,
   Building2,
   FileCheck2
 } from 'lucide-react';
+import { getBlockPct, isBlockReady } from '../utils/checklist';
 
 export default function Dashboard({ 
   data, 
@@ -264,10 +265,8 @@ export default function Dashboard({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {data.bloques.map((bloque) => {
-              const infraKeys = Object.keys(bloque.infraestructura);
-              const installedCount = Object.values(bloque.infraestructura).filter(Boolean).length;
-              const pct = Math.round((installedCount / infraKeys.length) * 100);
-              const isReady = installedCount === infraKeys.length;
+              const pct = getBlockPct(bloque);
+              const isReady = isBlockReady(bloque);
 
               return (
                 <div 
