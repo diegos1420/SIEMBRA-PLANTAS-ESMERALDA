@@ -11,6 +11,7 @@ import TimelineSustrato from './TimelineSustrato';
 export default function ReporteGerencia({ data, planVersion, helperCalculations }) {
   const reportRef = useRef(null);
   const [generatingPDF, setGeneratingPDF] = useState(false);
+  const [generatingLegacy, setGeneratingLegacy] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
 
   // Actualiza el timestamp cada vez que cambien los datos
@@ -182,6 +183,29 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
       alert('Error al generar el PDF. Intente de nuevo.');
     } finally {
       setGeneratingPDF(false);
+    }
+  };
+
+  // ── Generación de PDF antiguo (rasterizado del HTML) — solo para comparar ──
+  const handleDownloadPDFLegacy = async () => {
+    setGeneratingLegacy(true);
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+      const element = reportRef.current;
+      const filename = `Informe_Gerencia_FORMATO_ANTERIOR_${new Date().toISOString().slice(0, 10)}.pdf`;
+      await html2pdf().set({
+        margin: [8, 8, 8, 8],
+        filename,
+        image: { type: 'jpeg', quality: 0.97 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css'] }
+      }).from(element).save();
+    } catch (err) {
+      console.error('Error generando PDF (formato anterior):', err);
+      alert('Error al generar el PDF. Intente de nuevo.');
+    } finally {
+      setGeneratingLegacy(false);
     }
   };
 
@@ -857,14 +881,25 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
             </div>
           </div>
         </div>
-        <button
-          onClick={handleDownloadPDF}
-          disabled={generatingPDF}
-          className="btn-primary gap-2 self-start sm:self-center"
-        >
-          <Download className="w-4 h-4" />
-          {generatingPDF ? 'Generando PDF...' : 'Descargar PDF'}
-        </button>
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+          <button
+            onClick={handleDownloadPDF}
+            disabled={generatingPDF}
+            className="btn-primary gap-2"
+          >
+            <Download className="w-4 h-4" />
+            {generatingPDF ? 'Generando PDF...' : 'Descargar PDF'}
+          </button>
+          <button
+            onClick={handleDownloadPDFLegacy}
+            disabled={generatingLegacy}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-brand-border text-brand-carbon-muted hover:bg-brand-crema transition-colors"
+            title="Genera el PDF con el método anterior (imagen del HTML) para comparar"
+          >
+            <Download className="w-3.5 h-3.5" />
+            {generatingLegacy ? 'Generando...' : 'Formato anterior'}
+          </button>
+        </div>
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════
