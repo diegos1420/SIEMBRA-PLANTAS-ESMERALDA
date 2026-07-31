@@ -22,7 +22,7 @@ export default function Navbar({
       icon: DollarSign,
       badge: pancogerPendiente ? 'ALERTA $30M' : null
     },
-    { id: 'tareas', label: 'Cronograma & Tareas', icon: CalendarCheck },
+    // { id: 'tareas', label: 'Cronograma & Tareas', icon: CalendarCheck },  // Oculto temporalmente
     { id: 'decisiones', label: 'Decisiones & Riesgos', icon: AlertTriangle },
     { id: 'informe', label: 'Informe Gerencia', icon: FileText },
   ];
