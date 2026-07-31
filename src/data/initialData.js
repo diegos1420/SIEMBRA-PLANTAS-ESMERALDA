@@ -228,27 +228,71 @@ export const INITIAL_DATA = {
 
   tareas: [],
 
+  // ─── Línea de Tiempo — Abastecimiento de Sustrato y Bolsas ────────────────
+  cronologiaSustrato: [
+    {
+      id: "hito_s31",
+      semana: 31,
+      fecha: "2026-07-27",
+      tipo: "ALERTA",
+      estado: "PENDIENTE",
+      titulo: "Llegada de 29.936 bolsas con sustrato de coco",
+      descripcion: "Llegan 29.936 bolsas con sustrato de coco. 22.250 unidades se quedan en Chocontá en la empresa MD. Para Agroventure Capital quedan únicamente 7.686 unidades, lo que genera un déficit inmediato para el Plan 1.",
+      metricas: [
+        { label: "Total llegada", valor: "29.936 bolsas" },
+        { label: "Retenidas en Chocontá (MD)", valor: "22.250 bolsas" },
+        { label: "Recibe Agroventure", valor: "7.686 bolsas" },
+      ]
+    },
+    {
+      id: "hito_s34",
+      semana: 34,
+      fecha: "2026-08-17",
+      tipo: "HITO",
+      estado: "PENDIENTE",
+      titulo: "Llegada de 32.000 unidades de sustrato SIN bolsa",
+      descripcion: "Llegan 32.000 unidades de sustrato de coco sin bolsa. Requiere gestionar la compra de las bolsas para poder utilizar este sustrato en la siembra.",
+      metricas: [
+        { label: "Sustrato sin bolsa", valor: "32.000 unidades" },
+      ]
+    },
+    {
+      id: "hito_compra",
+      semana: null,
+      fecha: "",
+      tipo: "COMPRA",
+      estado: "PENDIENTE",
+      titulo: "Compra de bolsas y sustrato faltante para completar el proyecto",
+      descripcion: "Se requiere generar la compra de 56.314 bolsas restantes para completar el proyecto de doble densidad de Agroventure Capital más el proyecto de Villapinzón. Además, se requieren 24.314 unidades de sustrato para completar todo, lo que corresponde a 656.478 litros de sustrato de coco.",
+      metricas: [
+        { label: "Bolsas por comprar", valor: "56.314 bolsas" },
+        { label: "Sustrato por adquirir", valor: "24.314 unidades" },
+        { label: "Volumen de coco", valor: "656.478 litros" },
+      ]
+    }
+  ],
+
   decisiones: [
     {
       id: "dec_sustrato_s34",
-      titulo: "Destino de las 32.000 bolsas con sustrato — Semana 34",
-      descripcion: "En la semana 34 llegarían 32.000 bolsas adicionales con sustrato de coco (complemento para completar las 32.000 del Plan 1). A la fecha no se ha tomado la decisión sobre si el lote llega directamente a Finca La Esmeralda o se desvía a Villapinzón. Actualmente solo hay 7.686 bolsas disponibles en finca.",
-      vencimiento: "2026-08-22",
-      responsable: "Gerencia / Logística",
-      planContingencia: "Si las bolsas van a Villapinzón, activar Plan 2 (bolsas 3L) para las 24.314 posiciones restantes del Plan 1 hasta que lleguen a finca. Coordinar transporte adicional si es necesario.",
+      titulo: "Compra de 56.314 bolsas y 24.314 unidades de sustrato faltante",
+      descripcion: "La llegada de la semana 31 (29.936 bolsas) dejó solo 7.686 unidades para Agroventure — 22.250 se quedaron en Chocontá (MD). En la semana 34 llegan 32.000 unidades de sustrato SIN bolsa. Falta decidir y ejecutar la compra de 56.314 bolsas (doble densidad Agroventure + Villapinzón) y 24.314 unidades de sustrato (656.478 L de coco) para completar todo el proyecto.",
+      vencimiento: "2026-08-15",
+      responsable: "Gerencia / Compras / Logística",
+      planContingencia: "Mientras se gestiona la compra, priorizar la siembra con las 7.686 bolsas disponibles (24% del Plan 1) y activar Plan 2 (bolsas 3L) para el resto de posiciones. Confirmar tiempos de entrega del proveedor de bolsas antes de la semana 34.",
       estado: "ABIERTA"
     }
   ],
 
   riesgos: [
     {
-      id: "riesgo_sustrato_s34",
-      titulo: "Retraso o desvío de las 32.000 bolsas de sustrato — Semana 34",
-      descripcion: "Si las 32.000 bolsas con sustrato que llegan en la semana 34 se destinan a Villapinzón en lugar de Finca La Esmeralda, el Plan 1 queda incompleto con solo 7.686 posiciones (24%) y se debe activar contingencia.",
+      id: "riesgo_deficit_sustrato",
+      titulo: "Déficit de sustrato y bolsas para completar la siembra",
+      descripcion: "De las 29.936 bolsas de la semana 31, 22.250 quedaron retenidas en Chocontá (MD) dejando solo 7.686 para Agroventure (24% del Plan 1). El sustrato de la semana 34 llega sin bolsa. Sin la compra oportuna de 56.314 bolsas y 24.314 unidades de sustrato, el proyecto de doble densidad y Villapinzón no se completa a tiempo.",
       impacto: "ALTO",
-      probabilidad: "MEDIA",
-      responsable: "Logística / Gerencia",
-      mitigacion: "Confirmar destino con proveedor antes de semana 33. Tener Plan 2 (bolsas 3L) listo para activar en los tres bloques. Gestionar transporte desde Villapinzón si aplica.",
+      probabilidad: "ALTA",
+      responsable: "Compras / Logística / Gerencia",
+      mitigacion: "Emitir la orden de compra de bolsas y sustrato antes de semana 33. Coordinar embolsado del sustrato que llega sin bolsa en semana 34. Gestionar liberación o transporte del material retenido en Chocontá. Tener Plan 2 (bolsas 3L) listo como contingencia.",
       estado: "ABIERTO"
     }
   ],

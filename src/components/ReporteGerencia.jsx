@@ -6,6 +6,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { getGroupPct, getBlockPct, isBlockReady, getPendientes, ESTADO_COLORS, ESTADO_LABELS } from '../utils/checklist';
+import TimelineSustrato from './TimelineSustrato';
 
 export default function ReporteGerencia({ data, planVersion, helperCalculations }) {
   const reportRef = useRef(null);
@@ -779,14 +780,29 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
             )}
           </section>
 
-          {/* ── SECCIÓN 7: Decisiones & Riesgos ──────────────────────────── */}
+          {/* ── SECCIÓN 7: Línea de Tiempo — Sustrato ─────────────────────── */}
+          {data.cronologiaSustrato?.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-4 pb-2 border-b-2 border-blue-500">
+                <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                  <Clock className="w-3.5 h-3.5 text-white" />
+                </div>
+                <h2 className="font-display text-base font-bold text-brand-carbon uppercase tracking-wide">
+                  7. Línea de Tiempo — Abastecimiento de Sustrato y Bolsas
+                </h2>
+              </div>
+              <TimelineSustrato eventos={data.cronologiaSustrato} compact />
+            </section>
+          )}
+
+          {/* ── SECCIÓN 8: Decisiones & Riesgos ──────────────────────────── */}
           <section>
             <div className="flex items-center gap-2 mb-4 pb-2 border-b-2 border-red-500">
               <div className="w-6 h-6 rounded-full bg-red-600 flex items-center justify-center flex-shrink-0">
                 <ShieldAlert className="w-3.5 h-3.5 text-white" />
               </div>
               <h2 className="font-display text-base font-bold text-brand-carbon uppercase tracking-wide">
-                7. Decisiones & Riesgos
+                8. Decisiones & Riesgos
               </h2>
             </div>
 
