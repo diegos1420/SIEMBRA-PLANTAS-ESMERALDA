@@ -5,18 +5,26 @@ import autoTable from 'jspdf-autotable';
 const VERDE = [58, 84, 33];
 const OCRE = [201, 107, 40];
 const CARBON = [45, 46, 38];
-const BORDER = [221, 214, 199];
-const GRAYTEXT = [92, 94, 84];
-const LIGHT = [248, 247, 243];
+const BORDER = [223, 218, 205];
+const GRAYTEXT = [107, 109, 99];
+const LIGHT = [250, 249, 246];
 const RED = [184, 50, 50];
-const AMBER = [217, 167, 38];
-const BLUE = [37, 99, 235];
-const PURPLE = [124, 58, 200];
+const AMBER = [180, 130, 20];
+const BLUE = [30, 90, 175];
+const PURPLE = [108, 58, 170];
 const WHITE = [255, 255, 255];
 
 const fmtNum = (n) => (n ?? 0).toLocaleString('es-CO');
 const fmtCOP = (v) => `$${((v || 0) / 1e6).toFixed(1)} M`;
 const fmtCOPFull = (v) => `$${(v || 0).toLocaleString('es-CO')}`;
+
+// Recorta una lista de ítems pendientes a los primeros N + resumen del resto
+function resumenPendientes(pendientes, max = 3) {
+  if (pendientes.length === 0) return 'Ninguno — bloque completo';
+  const visibles = pendientes.slice(0, max).map((p) => `${p.nombre} (${p.pct}%)`);
+  const resto = pendientes.length - visibles.length;
+  return visibles.join('; ') + (resto > 0 ? `; +${resto} más` : '');
+}
 
 async function loadLogo() {
   try {
@@ -52,11 +60,13 @@ export async function generateReportePDF({ data, calc, proximosPasos = [], alert
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
   const PW = doc.internal.pageSize.getWidth();
   const PH = doc.internal.pageSize.getHeight();
-  const M = 14;
+  const M = 16;
   const CW = PW - 2 * M;
+  const BOTTOM_LIMIT = PH - 18;
   let y = 0;
 
-  const { meta, planRiego, costos, decisiones, riesgos, siembras, insumos, bloques } = data;
+  const { meta, planRiego, costos, insumos, bloques } = data;
+  const siembras = data.siembras;
   const p1 = planRiego?.plan1 || {};
   const p2 = planRiego?.plan2 || {};
 
@@ -67,93 +77,103 @@ export async function generateReportePDF({ data, calc, proximosPasos = [], alert
   const setDraw = (c) => doc.setDrawColor(c[0], c[1], c[2]);
 
   const ensure = (h) => {
-    if (y + h > PH - 16) { doc.addPage(); y = M; }
+    if (y + h > BOTTOM_LIMIT) { doc.addPage(); y = M; }
   };
 
+  // ── Encabezado de sección: numeral + título + regla fina (estilo documento) ─
   function sectionHeader(label, title, color = VERDE) {
-    ensure(20);
-    y += 2;
+    ensure(18);
+    y += 3;
+    const badge = 6.4;
     setFill(color);
-    doc.roundedRect(M, y, CW, 8, 1.2, 1.2, 'F');
-    setFill(WHITE);
-    doc.circle(M + 5, y + 4, 2.7, 'F');
+    doc.roundedRect(M, y, badge, badge, 1, 1, 'F');
+    setText(WHITE);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.text(String(label), M + badge / 2, y + badge / 2 + 1.2, { align: 'center' });
     setText(color);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.text(String(label), M + 5, y + 5.2, { align: 'center' });
-    setText(WHITE);
-    doc.setFontSize(10.5);
-    doc.text(title, M + 11, y + 5.4);
-    y += 12;
+    doc.setFontSize(12);
+    doc.text(title, M + badge + 3.5, y + badge / 2 + 1.4);
+    y += badge + 3;
+    setDraw(color);
+    doc.setLineWidth(0.5);
+    doc.line(M, y, M + CW, y);
+    y += 6;
   }
 
   function subheading(txt, color = CARBON) {
-    ensure(8);
-    y += 1;
+    ensure(9);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
+    doc.setFontSize(9.5);
     setText(color);
     doc.text(txt, M, y);
-    y += 4.5;
+    y += 5.5;
   }
 
   function paragraph(text, opts = {}) {
-    const size = opts.size || 8.5;
+    const size = opts.size || 8.8;
     doc.setFont('helvetica', opts.bold ? 'bold' : 'normal');
     doc.setFontSize(size);
     setText(opts.color || GRAYTEXT);
     const lines = doc.splitTextToSize(text, opts.width || CW);
-    const lh = size * 0.46;
+    const lh = size * 0.5;
     lines.forEach((ln) => {
       ensure(lh + 1);
       doc.text(ln, M, y);
       y += lh;
     });
-    y += opts.gap ?? 3;
+    y += opts.gap ?? 4;
   }
 
   function table(opts) {
+    // Evita encabezados de tabla "huérfanos" al final de una página:
+    // reserva espacio para el header + al menos una fila antes de empezar.
+    ensure(20);
     autoTable(doc, {
       startY: y,
-      margin: { left: M, right: M, bottom: 16 },
+      margin: { left: M, right: M, bottom: 18 },
+      theme: 'striped',
+      rowPageBreak: 'avoid',
       styles: {
-        font: 'helvetica', fontSize: 7.8, cellPadding: 1.6, overflow: 'linebreak',
-        textColor: CARBON, lineColor: BORDER, lineWidth: 0.1, valign: 'middle',
+        font: 'helvetica', fontSize: 8, cellPadding: { top: 2, bottom: 2, left: 2.4, right: 2.4 },
+        overflow: 'linebreak', textColor: CARBON, lineColor: BORDER, lineWidth: 0.1, valign: 'middle', minCellHeight: 6,
       },
-      headStyles: { fillColor: opts.headColor || VERDE, textColor: WHITE, fontStyle: 'bold', fontSize: 7.8 },
+      headStyles: { fillColor: opts.headColor || VERDE, textColor: WHITE, fontStyle: 'bold', fontSize: 8, cellPadding: { top: 2.6, bottom: 2.6, left: 2.4, right: 2.4 } },
       alternateRowStyles: { fillColor: LIGHT },
       ...opts,
     });
-    y = doc.lastAutoTable.finalY + 4;
+    y = doc.lastAutoTable.finalY + 7;
   }
 
   // ══ PORTADA ════════════════════════════════════════════════════════════════
   setFill(CARBON);
-  doc.rect(0, 0, PW, 34, 'F');
+  doc.rect(0, 0, PW, 36, 'F');
   if (logo) {
     setFill(WHITE);
-    doc.roundedRect(M, 7, 20, 20, 1.5, 1.5, 'F');
-    doc.addImage(logo, 'PNG', M + 1.5, 8.5, 17, 17);
+    doc.roundedRect(M, 8, 21, 21, 1.5, 1.5, 'F');
+    doc.addImage(logo, 'PNG', M + 1.5, 9.5, 18, 18);
   }
   setText(WHITE);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(15);
-  doc.text('Informe de Gerencia General', M + 24, 14);
+  doc.setFontSize(16);
+  doc.text('Informe de Gerencia General', M + 26, 16);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  setText([205, 205, 205]);
-  doc.text(`Plan de Siembra Arándano — ${meta.finca}`, M + 24, 20);
-  doc.setFontSize(8);
-  doc.text(fechaInforme, PW - M, 12, { align: 'right' });
-  doc.text(`${horaInforme} hrs`, PW - M, 16.5, { align: 'right' });
+  doc.setFontSize(9.5);
+  setText([200, 200, 195]);
+  doc.text(`Plan de Siembra Arándano — ${meta.finca}`, M + 26, 22.5);
+
+  doc.setFontSize(8.5);
+  doc.text(fechaInforme, PW - M, 13, { align: 'right' });
+  doc.text(`${horaInforme} hrs`, PW - M, 17.5, { align: 'right' });
   setFill(VERDE);
-  doc.roundedRect(PW - M - 30, 20.5, 30, 6, 1, 1, 'F');
+  doc.roundedRect(PW - M - 28, 21, 28, 6.5, 1, 1, 'F');
   setText(WHITE);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7);
-  doc.text('CONFIDENCIAL', PW - M - 15, 24.5, { align: 'center' });
+  doc.text('CONFIDENCIAL', PW - M - 14, 25.3, { align: 'center' });
 
-  y = 40;
+  y = 46;
 
   // ══ KPIs EJECUTIVOS ══════════════════════════════════════════════════════════
   const kpis = [
@@ -162,39 +182,62 @@ export async function generateReportePDF({ data, calc, proximosPasos = [], alert
     { label: 'Costos Totales', value: `${fmtCOP(calc.totalCostos)} COP`, sub: `Pendientes: ${fmtCOP(calc.costosPendientes)}`, color: OCRE },
     { label: 'Balance Hídrico', value: `${calc.peakCombinado.toFixed(0)} m³/día`, sub: `Margen: ${calc.margen.toFixed(1)} m³/día`, color: calc.margen >= 0 ? BLUE : RED },
   ];
-  const gap = 3;
-  const bw = (CW - gap * 3) / 4;
-  const bh = 17;
+  const kgap = 4;
+  const bw = (CW - kgap * 3) / 4;
+  const bh = 20;
   kpis.forEach((k, i) => {
-    const x = M + i * (bw + gap);
+    const x = M + i * (bw + kgap);
     setFill(LIGHT);
     setDraw(BORDER);
+    doc.setLineWidth(0.2);
     doc.roundedRect(x, y, bw, bh, 1.5, 1.5, 'FD');
+    setFill(k.color);
+    doc.rect(x, y, 1.4, bh, 'F');
     setText(GRAYTEXT);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6);
-    doc.text(k.label.toUpperCase(), x + 2.2, y + 4);
+    doc.setFontSize(6.3);
+    doc.text(k.label.toUpperCase(), x + 4, y + 5.5);
     setText(k.color);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10.5);
-    doc.text(k.value, x + 2.2, y + 9.5);
+    doc.setFontSize(11.5);
+    doc.text(k.value, x + 4, y + 12.5);
     setText(GRAYTEXT);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6);
-    doc.text(doc.splitTextToSize(k.sub, bw - 4), x + 2.2, y + 13.5);
+    doc.setFontSize(6.3);
+    const subLines = doc.splitTextToSize(k.sub, bw - 7);
+    doc.text(subLines.slice(0, 2), x + 4, y + 16.3);
   });
-  y += bh + 5;
+  y += bh + 8;
 
   // ══ ALERTAS CRÍTICAS ════════════════════════════════════════════════════════
   if (alertasCriticas.length > 0) {
-    table({
-      head: [['Alertas críticas — Requieren atención inmediata']],
-      body: alertasCriticas.map((a) => [`•  ${a.msg}`]),
-      headColor: RED,
-      styles: { font: 'helvetica', fontSize: 8, cellPadding: 1.8, overflow: 'linebreak', textColor: [140, 30, 30], lineColor: BORDER, lineWidth: 0.1 },
-      alternateRowStyles: { fillColor: [252, 242, 242] },
-      bodyStyles: { fillColor: [253, 247, 247] },
+    ensure(alertasCriticas.length * 8 + 12);
+    setFill([253, 244, 244]);
+    setDraw(RED);
+    doc.setLineWidth(0.3);
+    const boxH = 8 + alertasCriticas.length * 6.4;
+    doc.roundedRect(M, y, CW, boxH, 1.5, 1.5, 'FD');
+
+    setFill(RED);
+    doc.roundedRect(M + 4, y + 3.2, 5, 5, 0.8, 0.8, 'F');
+    setText(WHITE);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text('!', M + 6.5, y + 6.9, { align: 'center' });
+
+    setText(RED);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.6);
+    doc.text('ALERTAS CRÍTICAS — REQUIEREN ATENCIÓN INMEDIATA', M + 12, y + 6.7);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    setText([120, 30, 30]);
+    alertasCriticas.forEach((a, i) => {
+      const lines = doc.splitTextToSize(`•  ${a.msg}`, CW - 8);
+      doc.text(lines, M + 4, y + 12.5 + i * 6.4);
     });
+    y += boxH + 8;
   }
 
   // ══ 1. EL PLAN ═══════════════════════════════════════════════════════════════
@@ -212,7 +255,7 @@ export async function generateReportePDF({ data, calc, proximosPasos = [], alert
       ['Bolsas de sustrato disponibles', `${fmtNum(calc.bolsasDisp)} / ${fmtNum(calc.bolsasReq)}  (${calc.pctBolsas}%)`, '—'],
       ['Déficit de bolsas', `${fmtNum(calc.bolsasFaltantes)} bolsas`, '—'],
     ],
-    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 52 } },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 54, textColor: CARBON }, 1: { cellWidth: (CW - 54) / 2 }, 2: { cellWidth: (CW - 54) / 2 } },
     headColor: VERDE,
   });
 
@@ -220,27 +263,26 @@ export async function generateReportePDF({ data, calc, proximosPasos = [], alert
   sectionHeader(2, 'Estado de Ejecución — Bloques e Infraestructura', CARBON);
   paragraph(`${calc.totalBloques} bloques con avance físico promedio de ${calc.avancePromedioBloques}%. ${calc.bloquesListos} listo(s) al 100% para siembra y ${calc.bloquesConAlerta.length} en adecuación.`);
   table({
-    head: [['Bloque', 'Avance', 'Infra.', 'Riego', 'Cap. P1', 'Cap. P2', 'Ítems pendientes (con nota de campo)']],
+    head: [['Bloque', 'Avance', 'Infra.', 'Riego', 'Cap. P1', 'Cap. P2', 'Principales ítems pendientes']],
     body: calc.bloqueStats.map((b) => {
       const infra = (b.grupos || []).find((g) => g.nombre === 'Infraestructura');
       const riego = (b.grupos || []).find((g) => g.nombre === 'Sistema de Riego');
-      const pend = (b.grupos || [])
-        .flatMap((g) => g.items.filter((i) => (i.pct || 0) < 100)
-          .map((i) => (i.nota ? `${i.nombre} (${i.pct}%, ${i.nota})` : `${i.nombre} (${i.pct}%)`)))
-        .join('; ') || 'Ninguno — bloque completo';
+      const pend = (b.pendientes || []).length
+        ? resumenPendientes(b.pendientes, 3)
+        : 'Ninguno — bloque completo';
       return [
         b.codigo, `${b.pct}%`, infra ? `${infra.pct}%` : '—', riego ? `${riego.pct}%` : '—',
         fmtNum(b.capacidadPlan1 || 0), fmtNum(b.capacidadPlan2 || 0), pend,
       ];
     }),
     columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 16 },
-      1: { cellWidth: 12, halign: 'center' },
-      2: { cellWidth: 12, halign: 'center' },
-      3: { cellWidth: 12, halign: 'center' },
-      4: { cellWidth: 15, halign: 'right' },
-      5: { cellWidth: 15, halign: 'right' },
-      6: { cellWidth: 'auto' },
+      0: { fontStyle: 'bold', cellWidth: 17 },
+      1: { cellWidth: 19, halign: 'center' },
+      2: { cellWidth: 15, halign: 'center' },
+      3: { cellWidth: 15, halign: 'center' },
+      4: { cellWidth: 18, halign: 'right' },
+      5: { cellWidth: 18, halign: 'right' },
+      6: { cellWidth: CW - 102 },
     },
     headColor: CARBON,
   });
@@ -257,9 +299,9 @@ export async function generateReportePDF({ data, calc, proximosPasos = [], alert
         (ev.metricas || []).map((m) => `${m.label}: ${m.valor}`).join('\n'),
       ]),
       columnStyles: {
-        0: { cellWidth: 24, fontStyle: 'bold' },
-        1: { cellWidth: 'auto' },
-        2: { cellWidth: 46 },
+        0: { cellWidth: 26, fontStyle: 'bold' },
+        1: { cellWidth: CW - 26 - 48 },
+        2: { cellWidth: 48 },
       },
       headColor: BLUE,
     });
@@ -280,7 +322,7 @@ export async function generateReportePDF({ data, calc, proximosPasos = [], alert
         return [i.nombre, i.categoria, `${fmtNum(disp)} ${i.unidad || ''}`, `${fmtNum(i.requerido)} ${i.unidad || ''}`, ok ? '—' : fmtNum(falta), ok ? 'OK' : 'FALTANTE'];
       }),
       columnStyles: {
-        2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'center', cellWidth: 20 },
+        2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'center', cellWidth: 22 },
       },
       headColor: PURPLE,
     });
@@ -298,7 +340,7 @@ export async function generateReportePDF({ data, calc, proximosPasos = [], alert
       ['Pico máximo combinado (días 1–12)', calc.peakCombinado.toFixed(1), `${Math.round(calc.peakCombinado / cap * 100)}%`, 'Fase crítica'],
       ['Margen disponible', calc.margen.toFixed(1), `${Math.round(calc.margen / cap * 100)}%`, calc.margen >= 0 ? 'OK' : 'DÉFICIT'],
     ],
-    columnStyles: { 1: { halign: 'right', cellWidth: 24 }, 2: { halign: 'right', cellWidth: 24 }, 3: { cellWidth: 34 } },
+    columnStyles: { 0: { cellWidth: CW - 26 - 26 - 36 }, 1: { halign: 'right', cellWidth: 26 }, 2: { halign: 'right', cellWidth: 26 }, 3: { cellWidth: 36 } },
     headColor: BLUE,
     didParseCell: (d) => {
       if (d.section === 'body' && d.row.index >= 3) { d.cell.styles.fontStyle = 'bold'; }
@@ -322,7 +364,7 @@ export async function generateReportePDF({ data, calc, proximosPasos = [], alert
       fmtCOPFull(c.montoCOP),
       c.estadoFlujoCaja,
     ]),
-    columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 28 }, 2: { halign: 'right', cellWidth: 30 }, 3: { cellWidth: 26, halign: 'center' } },
+    columnStyles: { 0: { cellWidth: CW - 30 - 32 - 28 }, 1: { cellWidth: 30 }, 2: { halign: 'right', cellWidth: 32 }, 3: { cellWidth: 28, halign: 'center' } },
     headColor: OCRE,
   });
 
@@ -338,7 +380,7 @@ export async function generateReportePDF({ data, calc, proximosPasos = [], alert
         d.titulo, d.vencimiento || '—', d.responsable || '—',
         d.descripcion + (d.planContingencia ? `\nContingencia: ${d.planContingencia}` : ''),
       ]),
-      columnStyles: { 0: { cellWidth: 42, fontStyle: 'bold' }, 1: { cellWidth: 20, halign: 'center' }, 2: { cellWidth: 26 }, 3: { cellWidth: 'auto' } },
+      columnStyles: { 0: { cellWidth: 40, fontStyle: 'bold' }, 1: { cellWidth: 20, halign: 'center' }, 2: { cellWidth: 28 }, 3: { cellWidth: CW - 40 - 20 - 28 } },
       headColor: AMBER,
     });
   }
@@ -352,7 +394,7 @@ export async function generateReportePDF({ data, calc, proximosPasos = [], alert
         r.titulo, r.impacto || '—', r.probabilidad || '—', r.responsable || '—',
         r.descripcion + (r.mitigacion ? `\nMitigación: ${r.mitigacion}` : ''),
       ]),
-      columnStyles: { 0: { cellWidth: 38, fontStyle: 'bold' }, 1: { cellWidth: 17, halign: 'center' }, 2: { cellWidth: 14, halign: 'center' }, 3: { cellWidth: 24 }, 4: { cellWidth: 'auto' } },
+      columnStyles: { 0: { cellWidth: 36, fontStyle: 'bold' }, 1: { cellWidth: 18, halign: 'center' }, 2: { cellWidth: 16, halign: 'center' }, 3: { cellWidth: 26 }, 4: { cellWidth: CW - 36 - 18 - 16 - 26 } },
       headColor: RED,
     });
   }
@@ -367,19 +409,19 @@ export async function generateReportePDF({ data, calc, proximosPasos = [], alert
       ['Compromiso financiero', `Costos totales por ${fmtCOP(calc.totalCostos)} COP, de los cuales ${fmtCOP(calc.costosPendientes)} están pendientes de avisar a tesorería.`],
       ['Viabilidad hídrica', calc.margen >= 0 ? `Capacidad suficiente: pico ${calc.peakCombinado.toFixed(1)} m³/día con ${calc.margen.toFixed(1)} m³/día de margen. ${calc.decisAbiertas.length} decisión(es) y ${calc.riesgosAlto.length} riesgo(s) de impacto alto abiertos.` : `Déficit hídrico de ${Math.abs(calc.margen).toFixed(1)} m³/día en el pico. ${calc.decisAbiertas.length} decisión(es) y ${calc.riesgosAlto.length} riesgo(s) de impacto alto abiertos.`],
     ],
-    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 40 }, 1: { cellWidth: 'auto' } },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 42 }, 1: { cellWidth: CW - 42 } },
     headColor: CARBON,
   });
   subheading('Próximos Pasos Priorizados', VERDE);
   table({
     head: [['#', 'Acción', 'Responsable sugerido', 'Prioridad']],
     body: proximosPasos.map((p, i) => [String(i + 1), p.texto, p.resp, p.prioridad]),
-    columnStyles: { 0: { cellWidth: 8, halign: 'center', fontStyle: 'bold' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 34 }, 3: { cellWidth: 20, halign: 'center' } },
+    columnStyles: { 0: { cellWidth: 9, halign: 'center', fontStyle: 'bold' }, 1: { cellWidth: CW - 9 - 36 - 22 }, 2: { cellWidth: 36 }, 3: { cellWidth: 22, halign: 'center' } },
     headColor: VERDE,
     didParseCell: (d) => {
       if (d.section === 'body' && d.column.index === 3) {
         d.cell.styles.fontStyle = 'bold';
-        d.cell.styles.textColor = d.cell.raw === 'ALTA' ? RED : OCRE;
+        d.cell.styles.textColor = d.cell.raw === 'ALTA' ? RED : AMBER;
       }
     },
   });
@@ -390,13 +432,13 @@ export async function generateReportePDF({ data, calc, proximosPasos = [], alert
     doc.setPage(i);
     setDraw(BORDER);
     doc.setLineWidth(0.2);
-    doc.line(M, PH - 11, PW - M, PH - 11);
+    doc.line(M, PH - 12, PW - M, PH - 12);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     setText(GRAYTEXT);
-    doc.text(`Agroventure Capital — ${meta.finca} · Confidencial`, M, PH - 7);
-    doc.text(fechaInforme, PW / 2, PH - 7, { align: 'center' });
-    doc.text(`Página ${i} de ${total}`, PW - M, PH - 7, { align: 'right' });
+    doc.text(`Agroventure Capital — ${meta.finca} · Confidencial`, M, PH - 8);
+    doc.text(fechaInforme, PW / 2, PH - 8, { align: 'center' });
+    doc.text(`Página ${i} de ${total}`, PW - M, PH - 8, { align: 'right' });
   }
 
   doc.save(`Informe_Gerencia_Agroventure_${new Date().toISOString().slice(0, 10)}.pdf`);
