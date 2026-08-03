@@ -30,14 +30,11 @@ export default function Dashboard({
     consumoRiegoDiario,
     consumoLavadoSustrato,
     consumoHidricoTotal,
-    capacidadHidrica,
     pancogerCost,
     tareasCriticas,
     decisionesAbiertas,
     riesgosAbiertos
   } = helperCalculations;
-
-  const pctWater = Math.round((consumoHidricoTotal / capacidadHidrica) * 100);
 
   return (
     <div className="space-y-6">
@@ -181,27 +178,17 @@ export default function Dashboard({
         <div className="brand-card space-y-2 border-l-4 border-l-blue-600">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-brand-carbon-muted">
-              Balance Hídrico Diario
+              Consumo Hídrico Diario
             </span>
             <div className="p-2 rounded-lg bg-blue-100 text-blue-700">
               <Droplets className="w-5 h-5" />
             </div>
           </div>
-          <div className="flex items-baseline justify-between">
+          <div className="flex items-baseline">
             <span className="font-display text-2xl font-bold text-brand-carbon">
               {consumoHidricoTotal} m³
             </span>
-            <span className="text-xs font-semibold text-blue-800">
-              Cap: {capacidadHidrica} m³/día
-            </span>
-          </div>
-          <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-            <div 
-              className={`h-full transition-all duration-500 ${
-                pctWater > 90 ? 'bg-red-600' : pctWater > 75 ? 'bg-amber-500' : 'bg-blue-600'
-              }`}
-              style={{ width: `${Math.min(100, pctWater)}%` }}
-            ></div>
+            <span className="text-xs text-brand-carbon-muted ml-1">/ día</span>
           </div>
           <div className="text-[11px] text-brand-carbon-muted flex justify-between pt-1">
             <span>Riego: {consumoRiegoDiario} m³</span>
