@@ -12,7 +12,10 @@ export default function DecisionsRisks({
   onOpenAddRiskModal,
   onOpenEditRiskModal,
   onDeleteRisk,
-  onToggleRiskStatus
+  onToggleRiskStatus,
+  onOpenAddTimelineModal,
+  onOpenEditTimelineModal,
+  onDeleteTimelineEvent
 }) {
   const estadoDecisionColor = {
     ABIERTA: 'bg-red-100 text-red-700 border border-red-200',
@@ -49,17 +52,30 @@ export default function DecisionsRisks({
       </div>
 
       {/* Timeline de Abastecimiento de Sustrato */}
-      {data.cronologiaSustrato?.length > 0 && (
-        <div className="brand-card space-y-4">
-          <div className="flex items-center gap-2 border-b border-brand-border pb-3">
+      <div className="brand-card space-y-4">
+        <div className="flex items-center justify-between border-b border-brand-border pb-3">
+          <div className="flex items-center gap-2">
             <CalendarClock className="w-5 h-5 text-blue-600" />
             <h3 className="font-display text-lg font-bold text-brand-carbon">
               Línea de Tiempo — Abastecimiento de Sustrato y Bolsas
             </h3>
           </div>
-          <TimelineSustrato eventos={data.cronologiaSustrato} />
+          <button onClick={onOpenAddTimelineModal} className="btn-secondary">
+            <Plus className="w-4 h-4" />
+            Agregar Evento
+          </button>
         </div>
-      )}
+
+        {(!data.cronologiaSustrato || data.cronologiaSustrato.length === 0) && (
+          <p className="text-xs text-center text-brand-carbon-muted py-6">No hay eventos registrados en la línea de tiempo.</p>
+        )}
+
+        <TimelineSustrato
+          eventos={data.cronologiaSustrato}
+          onEdit={onOpenEditTimelineModal}
+          onDelete={onDeleteTimelineEvent}
+        />
+      </div>
 
       {/* Decisions Board */}
       <div className="brand-card space-y-4">

@@ -176,11 +176,32 @@ export default function App() {
     }
   };
 
+  const handleDeleteTimelineEvent = (id) => {
+    if (window.confirm("¿Eliminar este evento de la línea de tiempo?")) {
+      setData(prev => ({ ...prev, cronologiaSustrato: (prev.cronologiaSustrato || []).filter(ev => ev.id !== id) }));
+    }
+  };
+
   // ── Open edit modals ──────────────────────────────────────────────────────
   const openEdit = (type, item) => {
     setEditingItem(item);
     setFormData({ ...item });
     setModalType(type);
+  };
+
+  // La línea de tiempo tiene un array anidado (metricas), así que se "aplana"
+  // en hasta 3 pares label/valor para poder editarlo con el mismo patrón de formulario.
+  const openEditTimeline = (ev) => {
+    setEditingItem(ev);
+    const m = ev.metricas || [];
+    setFormData({
+      titulo: ev.titulo, descripcion: ev.descripcion, tipo: ev.tipo, estado: ev.estado,
+      semana: ev.semana ?? '', fecha: ev.fecha || '',
+      m1Label: m[0]?.label || '', m1Valor: m[0]?.valor || '',
+      m2Label: m[1]?.label || '', m2Valor: m[1]?.valor || '',
+      m3Label: m[2]?.label || '', m3Valor: m[2]?.valor || '',
+    });
+    setModalType('timelineEvento');
   };
 
   // ── KPI calculations ──────────────────────────────────────────────────────
@@ -363,6 +384,29 @@ export default function App() {
       } else {
         setData(prev => ({ ...prev, riesgos: [...prev.riesgos, { id: `r_${Date.now()}`, ...riskData }] }));
       }
+
+    } else if (modalType === 'timelineEvento') {
+      const metricas = [];
+      if (formData.m1Label && formData.m1Valor) metricas.push({ label: formData.m1Label, valor: formData.m1Valor });
+      if (formData.m2Label && formData.m2Valor) metricas.push({ label: formData.m2Label, valor: formData.m2Valor });
+      if (formData.m3Label && formData.m3Valor) metricas.push({ label: formData.m3Label, valor: formData.m3Valor });
+      const eventoData = {
+        titulo: formData.titulo || 'Nuevo Evento',
+        descripcion: formData.descripcion || '',
+        tipo: formData.tipo || 'HITO',
+        estado: formData.estado || 'PENDIENTE',
+        semana: formData.semana !== '' && formData.semana != null ? parseInt(formData.semana) : null,
+        fecha: formData.fecha || '',
+        metricas,
+      };
+      if (editingItem) {
+        setData(prev => ({
+          ...prev,
+          cronologiaSustrato: (prev.cronologiaSustrato || []).map(ev => ev.id === editingItem.id ? { ...ev, ...eventoData } : ev)
+        }));
+      } else {
+        setData(prev => ({ ...prev, cronologiaSustrato: [...(prev.cronologiaSustrato || []), { id: `tl_${Date.now()}`, ...eventoData }] }));
+      }
     }
 
     closeModal();
@@ -377,6 +421,7 @@ export default function App() {
     insumo: editingItem ? 'Editar Insumo' : 'Registrar Insumo de Riego',
     decision: editingItem ? 'Editar Decisión' : 'Registrar Decisión Pendiente',
     risk: editingItem ? 'Editar Riesgo' : 'Registrar Riesgo Operacional',
+    timelineEvento: editingItem ? 'Editar Evento de Línea de Tiempo' : 'Agregar Evento a Línea de Tiempo',
   }[modalType] || '';
 
   if (loading) {
@@ -513,6 +558,13 @@ export default function App() {
             onOpenEditRiskModal={(riesgo) => openEdit('risk', riesgo)}
             onDeleteRisk={handleDeleteRisk}
             onToggleRiskStatus={handleToggleRiskStatus}
+            onOpenAddTimelineModal={() => {
+              setEditingItem(null);
+              setFormData({ tipo: 'HITO', estado: 'PENDIENTE' });
+              setModalType('timelineEvento');
+            }}
+            onOpenEditTimelineModal={(ev) => openEditTimeline(ev)}
+            onDeleteTimelineEvent={handleDeleteTimelineEvent}
           />
         )}
       </main>
@@ -892,6 +944,56 @@ export default function App() {
               <div>
                 <label className="font-semibold block mb-1">Acción de Mitigación:</label>
                 <textarea rows={2} value={formData.mitigacion || ''} onChange={e => setFormData({ ...formData, mitigacion: e.target.value })} placeholder="Acciones para reducir o eliminar el riesgo..." className="w-full p-2 border border-brand-border rounded resize-none" />
+              </div>
+            </>
+          )}
+
+          {/* TIMELINE EVENT FORM */}
+          {modalType === 'timelineEvento' && (
+            <>
+              <div>
+                <label className="font-semibold block mb-1">Título del Evento:</label>
+                <input type="text" required value={formData.titulo || ''} onChange={e => setFormData({ ...formData, titulo: e.target.value })} placeholder="Ej. Llegada de bolsas con sustrato" className="w-full p-2 border border-brand-border rounded" />
+              </div>
+              <div>
+                <label className="font-semibold block mb-1">Descripción:</label>
+                <textarea rows={3} value={formData.descripcion || ''} onChange={e => setFormData({ ...formData, descripcion: e.target.value })} placeholder="Detalle del hito, alerta o acción de compra..." className="w-full p-2 border border-brand-border rounded resize-none" />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="font-semibold block mb-1">Tipo:</label>
+                  <select value={formData.tipo || 'HITO'} onChange={e => setFormData({ ...formData, tipo: e.target.value })} className="w-full p-2 border border-brand-border rounded">
+                    <option value="HITO">Hito (Llegada)</option>
+                    <option value="ALERTA">Alerta (Déficit)</option>
+                    <option value="COMPRA">Acción de Compra</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-semibold block mb-1">Semana (opcional):</label>
+                  <input type="number" value={formData.semana ?? ''} onChange={e => setFormData({ ...formData, semana: e.target.value })} placeholder="Ej. 31" className="w-full p-2 border border-brand-border rounded" />
+                </div>
+                <div>
+                  <label className="font-semibold block mb-1">Fecha (opcional):</label>
+                  <input type="date" value={formData.fecha || ''} onChange={e => setFormData({ ...formData, fecha: e.target.value })} className="w-full p-2 border border-brand-border rounded" />
+                </div>
+              </div>
+              <div>
+                <label className="font-semibold block mb-1">Estado:</label>
+                <select value={formData.estado || 'PENDIENTE'} onChange={e => setFormData({ ...formData, estado: e.target.value })} className="w-full p-2 border border-brand-border rounded">
+                  <option value="PENDIENTE">PENDIENTE</option>
+                  <option value="RESUELTO">RESUELTO</option>
+                </select>
+              </div>
+              <div className="pt-2 border-t border-brand-border">
+                <label className="font-semibold block mb-2 text-brand-carbon-muted">Métricas destacadas (opcional, máx. 3):</label>
+                <div className="space-y-2">
+                  {[1, 2, 3].map((n) => (
+                    <div key={n} className="grid grid-cols-2 gap-2">
+                      <input type="text" value={formData[`m${n}Label`] || ''} onChange={e => setFormData({ ...formData, [`m${n}Label`]: e.target.value })} placeholder={`Etiqueta métrica ${n} (Ej. Total llegada)`} className="w-full p-2 border border-brand-border rounded text-sm" />
+                      <input type="text" value={formData[`m${n}Valor`] || ''} onChange={e => setFormData({ ...formData, [`m${n}Valor`]: e.target.value })} placeholder="Valor (Ej. 29.936 bolsas)" className="w-full p-2 border border-brand-border rounded text-sm" />
+                    </div>
+                  ))}
+                </div>
               </div>
             </>
           )}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { CalendarClock, PackageX, Package, ShoppingCart, AlertTriangle } from 'lucide-react';
+import { CalendarClock, PackageX, Package, ShoppingCart, AlertTriangle, Edit3, Trash2, CheckCircle2 } from 'lucide-react';
 
 const TIPO_CONFIG = {
   ALERTA: {
@@ -28,7 +28,7 @@ const TIPO_CONFIG = {
   },
 };
 
-export default function TimelineSustrato({ eventos = [], compact = false }) {
+export default function TimelineSustrato({ eventos = [], compact = false, onEdit, onDelete }) {
   if (!eventos.length) return null;
 
   return (
@@ -48,19 +48,49 @@ export default function TimelineSustrato({ eventos = [], compact = false }) {
               </div>
 
               {/* Contenido */}
-              <div className={`flex-1 rounded-xl border p-3 ${cfg.card} ${compact ? 'text-[11px]' : 'text-xs'}`}>
-                <div className="flex flex-wrap items-center gap-2 mb-1">
-                  {ev.semana != null && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-brand-carbon text-white font-bold text-[10px]">
-                      <CalendarClock className="w-3 h-3" />
-                      Semana {ev.semana}
+              <div className={`flex-1 rounded-xl border p-3 ${ev.estado === 'RESUELTO' ? 'opacity-60' : ''} ${cfg.card} ${compact ? 'text-[11px]' : 'text-xs'}`}>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {ev.semana != null && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-brand-carbon text-white font-bold text-[10px]">
+                        <CalendarClock className="w-3 h-3" />
+                        Semana {ev.semana}
+                      </span>
+                    )}
+                    <span className={`px-2 py-0.5 rounded border font-bold text-[10px] uppercase ${cfg.badge}`}>
+                      {cfg.label}
                     </span>
-                  )}
-                  <span className={`px-2 py-0.5 rounded border font-bold text-[10px] uppercase ${cfg.badge}`}>
-                    {cfg.label}
-                  </span>
-                  {ev.fecha && (
-                    <span className="text-[10px] text-brand-carbon-muted">{ev.fecha}</span>
+                    {ev.estado === 'RESUELTO' && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold text-[10px] uppercase">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Resuelto
+                      </span>
+                    )}
+                    {ev.fecha && (
+                      <span className="text-[10px] text-brand-carbon-muted">{ev.fecha}</span>
+                    )}
+                  </div>
+                  {(onEdit || onDelete) && (
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {onEdit && (
+                        <button
+                          onClick={() => onEdit(ev)}
+                          className="p-1 rounded text-gray-400 hover:text-brand-verde hover:bg-white transition-colors"
+                          title="Editar evento"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {onDelete && (
+                        <button
+                          onClick={() => onDelete(ev.id)}
+                          className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-white transition-colors"
+                          title="Eliminar evento"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
 
