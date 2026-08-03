@@ -1,7 +1,7 @@
 import React, { useRef, useMemo, useState, useEffect } from 'react';
 import {
   FileText, Download, Sprout, Droplets, DollarSign,
-  AlertTriangle, CheckCircle2, Clock, Package,
+  AlertTriangle, Clock, Package,
   ShieldAlert, Lightbulb, Boxes, TrendingUp, XCircle,
   RefreshCw, Flag, Target
 } from 'lucide-react';
@@ -64,7 +64,6 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
     const peakP1 = (p1.lavadoM3Dia || 0) + (p1.riegoM3Dia || 0);
     const peakP2 = (p2.lavadoM3Dia || 0) + (p2.riegoM3Dia || 0);
     const peakCombinado = peakP1 + peakP2;
-    const margen = (meta.capacidadHidricaDiaria || 180) - peakCombinado;
     const consumoBloquesRegistrado = bloques.reduce((s, b) => s + (b.consumoAguaEst || 0), 0);
 
     // Costos
@@ -101,7 +100,7 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
     return {
       totalBloques, bloquesListos, bloquesConAlerta, bloqueStats, avancePromedioBloques,
       total27L, total3L, pct27L, pct3L, capP1Total, capP2Total,
-      peakP1, peakP2, peakCombinado, margen, consumoBloquesRegistrado,
+      peakP1, peakP2, peakCombinado, consumoBloquesRegistrado,
       totalCostos, costosPendientes, costosAvisados, costosCriticos,
       insumosConFaltante, insumosOk,
       tareasPendientes, tareasAlta,
@@ -117,8 +116,6 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
       alerts.push({ tipo: 'infra', msg: `${calc.bloquesConAlerta.length} bloque(s) sin infraestructura completa para siembra`, nivel: 'alto' });
     if (calc.bolsasFaltantes > 0)
       alerts.push({ tipo: 'sustrato', msg: `Déficit de ${fmtNum(calc.bolsasFaltantes)} bolsas 27L — solo ${calc.pctBolsas}% del Plan 1 tiene sustrato`, nivel: 'alto' });
-    if (calc.margen < 20)
-      alerts.push({ tipo: 'agua', msg: `Margen hídrico ajustado: solo ${calc.margen.toFixed(1)} m³/día de reserva en pico`, nivel: calc.margen < 0 ? 'critico' : 'medio' });
     if (calc.costosCriticos.length > 0)
       alerts.push({ tipo: 'costos', msg: `${calc.costosCriticos.length} costo(s) críticos PENDIENTES de avisar a tesorería`, nivel: 'alto' });
     if (calc.riesgosAlto.length > 0)
@@ -138,7 +135,7 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
     }
     pasos.push({
       prioridad: 'ALTA',
-      texto: 'Coordinar el embolsado de las 32.000 unidades de sustrato que llegan SIN bolsa en la Semana 34 y gestionar la liberación del material retenido en Chocontá (MD).',
+      texto: 'Coordinar el embolsado de las 32.000 unidades de sustrato que llegan SIN bolsa en la Semana 34 y coordinar con los sublicenciatarios de Chocontá la logística de las 22.250 bolsas entregadas.',
       resp: 'Logística'
     });
     if (calc.bloquesConAlerta.length > 0) {
@@ -603,7 +600,6 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
               <tr>
                 <th className="p-2">Concepto</th>
                 <th className="p-2 text-right">m³/día</th>
-                <th className="p-2 text-right">% de cap.</th>
                 <th className="p-2">Periodo</th>
               </tr>
             </thead>
@@ -617,40 +613,27 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
                 <tr key={i} className="hover:bg-blue-50/30">
                   <td className="p-2 text-gray-700">{r.label}</td>
                   <td className={`p-2 text-right font-bold ${r.color}`}>{r.m3.toFixed(1)}</td>
-                  <td className="p-2 text-right text-gray-500">{Math.round(r.m3 / (meta.capacidadHidricaDiaria || 180) * 100)}%</td>
                   <td className="p-2 text-gray-400">{r.periodo}</td>
                 </tr>
               ))}
               <tr className="bg-gray-50 font-bold border-t-2 border-gray-300">
-                <td className="p-2">Pico máximo combinado (días 1–12)</td>
+                <td className="p-2">Consumo pico combinado (días 1–12)</td>
                 <td className="p-2 text-right text-brand-carbon">{calc.peakCombinado.toFixed(1)}</td>
-                <td className="p-2 text-right text-brand-carbon">{Math.round(calc.peakCombinado / (meta.capacidadHidricaDiaria || 180) * 100)}%</td>
                 <td className="p-2 text-gray-400">Fase crítica</td>
-              </tr>
-              <tr className={`font-bold ${calc.margen >= 0 ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}>
-                <td className="p-2">Margen disponible</td>
-                <td className="p-2 text-right">{calc.margen.toFixed(1)}</td>
-                <td className="p-2 text-right">{Math.round(calc.margen / (meta.capacidadHidricaDiaria || 180) * 100)}%</td>
-                <td className="p-2">{calc.margen >= 0 ? 'OK' : '⚠ DÉFICIT'}</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        {/* Semáforo hídrico */}
+        {/* Resumen de consumo */}
         <div className="space-y-3">
-          <div className={`p-4 rounded-xl border-2 pdf-avoid-break ${calc.margen >= 20 ? 'bg-emerald-50 border-emerald-400' : calc.margen >= 0 ? 'bg-amber-50 border-amber-400' : 'bg-red-50 border-red-500'}`}>
-            {calc.margen >= 0
-              ? <CheckCircle2 className={`w-5 h-5 mb-2 ${calc.margen >= 20 ? 'text-emerald-600' : 'text-amber-600'}`} />
-              : <AlertTriangle className="w-5 h-5 mb-2 text-red-600" />
-            }
-            <p className={`font-bold text-sm ${calc.margen >= 20 ? 'text-emerald-800' : calc.margen >= 0 ? 'text-amber-800' : 'text-red-800'}`}>
-              {calc.margen >= 20 ? 'Capacidad suficiente' : calc.margen >= 0 ? 'Margen ajustado' : '¡Déficit hídrico!'}
-            </p>
+          <div className="p-4 rounded-xl border-2 bg-blue-50 border-blue-300 pdf-avoid-break">
+            <Droplets className="w-5 h-5 mb-2 text-blue-600" />
+            <p className="font-bold text-sm text-blue-900">Consumo Hídrico Proyectado</p>
             <div className="mt-2 text-[11px] space-y-1 text-gray-600">
-              <p>Capacidad: <strong>{meta.capacidadHidricaDiaria} m³/día</strong></p>
-              <p>Pico combinado: <strong>{calc.peakCombinado.toFixed(1)} m³/día</strong></p>
-              <p>Margen: <strong className={calc.margen >= 0 ? 'text-emerald-700' : 'text-red-700'}>{calc.margen.toFixed(1)} m³/día</strong></p>
+              <p>Plan 1 (pico riego + lavado): <strong className="text-brand-carbon">{calc.peakP1.toFixed(1)} m³/día</strong></p>
+              <p>Plan 2 (pico riego + lavado): <strong className="text-brand-carbon">{calc.peakP2.toFixed(1)} m³/día</strong></p>
+              <p>Total combinado: <strong className="text-blue-800">{calc.peakCombinado.toFixed(1)} m³/día</strong></p>
             </div>
           </div>
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-[11px] text-blue-900">
@@ -838,15 +821,13 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
           </p>
         </div>
 
-        <div className={`p-3 rounded-lg border text-xs ${calc.margen >= 20 ? 'bg-emerald-50 border-emerald-200' : calc.margen >= 0 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'}`}>
+        <div className="p-3 rounded-lg border bg-blue-50 border-blue-200 text-xs">
           <div className="flex items-center gap-1.5 mb-1">
             <Droplets className="w-3.5 h-3.5 text-blue-600" />
-            <span className="font-bold text-brand-carbon uppercase text-[10px]">Viabilidad hídrica</span>
+            <span className="font-bold text-brand-carbon uppercase text-[10px]">Consumo hídrico</span>
           </div>
           <p className="text-gray-600 leading-relaxed">
-            {calc.margen >= 0
-              ? `Capacidad suficiente: el pico combinado (${calc.peakCombinado.toFixed(1)} m³/día) deja ${calc.margen.toFixed(1)} m³/día de margen sobre los ${meta.capacidadHidricaDiaria} m³/día instalados.`
-              : `Déficit: el pico combinado (${calc.peakCombinado.toFixed(1)} m³/día) supera la capacidad instalada en ${Math.abs(calc.margen).toFixed(1)} m³/día.`}
+            Consumo pico combinado de <strong className="text-brand-carbon">{calc.peakCombinado.toFixed(1)} m³/día</strong> (Plan 1: {calc.peakP1.toFixed(1)} m³/día · Plan 2: {calc.peakP2.toFixed(1)} m³/día).
             {' '}{calc.decisAbiertas.length} decisión(es) y {calc.riesgosAlto.length} riesgo(s) de impacto alto abiertos.
           </p>
         </div>
@@ -962,10 +943,10 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
                 color: 'text-amber-300'
               },
               {
-                label: 'Balance Hídrico', icon: Droplets,
+                label: 'Consumo Hídrico Pico', icon: Droplets,
                 value: `${calc.peakCombinado.toFixed(0)} m³/día`,
-                sub: `Cap: ${meta.capacidadHidricaDiaria} m³/día · Margen: ${calc.margen.toFixed(1)} m³`,
-                color: calc.margen >= 0 ? 'text-blue-300' : 'text-red-300'
+                sub: `Plan 1: ${calc.peakP1.toFixed(1)} m³/día · Plan 2: ${calc.peakP2.toFixed(1)} m³/día`,
+                color: 'text-blue-300'
               },
             ].map((k, i) => {
               const Icon = k.icon;
@@ -1030,7 +1011,7 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
             </div>
             <div className="text-right">
               <p>Meta total: <strong className="text-gray-600">{fmtNum(meta.totalPlantasObjetivo)} plantas</strong></p>
-              <p>Capacidad hídrica: <strong className="text-gray-600">{meta.capacidadHidricaDiaria} m³/día</strong></p>
+              <p>Consumo hídrico pico: <strong className="text-gray-600">{calc.peakCombinado.toFixed(1)} m³/día</strong></p>
             </div>
           </footer>
 

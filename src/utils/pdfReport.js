@@ -180,7 +180,7 @@ export async function generateReportePDF({ data, calc, proximosPasos = [], alert
     { label: 'Meta Total Plantas', value: fmtNum(meta.totalPlantasObjetivo), sub: `P1: ${fmtNum(meta.plan1Objetivo)} + P2: ${fmtNum(meta.plan2Objetivo)}`, color: VERDE },
     { label: 'Bloques Listos', value: `${calc.bloquesListos} / ${calc.totalBloques}`, sub: `Avance promedio ${calc.avancePromedioBloques}%`, color: CARBON },
     { label: 'Costos Totales', value: `${fmtCOP(calc.totalCostos)} COP`, sub: `Pendientes: ${fmtCOP(calc.costosPendientes)}`, color: OCRE },
-    { label: 'Balance Hídrico', value: `${calc.peakCombinado.toFixed(0)} m³/día`, sub: `Margen: ${calc.margen.toFixed(1)} m³/día`, color: calc.margen >= 0 ? BLUE : RED },
+    { label: 'Consumo Hídrico Pico', value: `${calc.peakCombinado.toFixed(0)} m³/día`, sub: `P1: ${calc.peakP1.toFixed(1)} · P2: ${calc.peakP2.toFixed(1)} m³/día`, color: BLUE },
   ];
   const kgap = 4;
   const bw = (CW - kgap * 3) / 4;
@@ -330,28 +330,24 @@ export async function generateReportePDF({ data, calc, proximosPasos = [], alert
 
   // ══ 5. BALANCE HÍDRICO ═══════════════════════════════════════════════════════
   sectionHeader(5, 'Balance Hídrico', BLUE);
-  const cap = meta.capacidadHidricaDiaria || 180;
   table({
-    head: [['Concepto', 'm³/día', '% de cap.', 'Periodo']],
+    head: [['Concepto', 'm³/día', 'Periodo']],
     body: [
-      ['Riego Plan 1', (p1.riegoM3Dia || 0).toFixed(1), `${Math.round((p1.riegoM3Dia || 0) / cap * 100)}%`, 'Semanas 1–4'],
-      ['Lavado sustrato Plan 1', (p1.lavadoM3Dia || 0).toFixed(1), `${Math.round((p1.lavadoM3Dia || 0) / cap * 100)}%`, `Días 1–${p1.lavadoDias}`],
-      ['Riego Plan 2', (p2.riegoM3Dia || 0).toFixed(1), `${Math.round((p2.riegoM3Dia || 0) / cap * 100)}%`, 'Semanas 1–4'],
-      ['Lavado sustrato Plan 2', (p2.lavadoM3Dia || 0).toFixed(1), `${Math.round((p2.lavadoM3Dia || 0) / cap * 100)}%`, `Días 1–${p2.lavadoDias}`],
-      ['Pico máximo combinado', calc.peakCombinado.toFixed(1), `${Math.round(calc.peakCombinado / cap * 100)}%`, 'Fase crítica'],
-      ['Margen disponible', calc.margen.toFixed(1), `${Math.round(calc.margen / cap * 100)}%`, calc.margen >= 0 ? 'OK' : 'DÉFICIT'],
+      ['Riego Plan 1', (p1.riegoM3Dia || 0).toFixed(1), 'Semanas 1–4'],
+      ['Lavado sustrato Plan 1', (p1.lavadoM3Dia || 0).toFixed(1), `Días 1–${p1.lavadoDias}`],
+      ['Riego Plan 2', (p2.riegoM3Dia || 0).toFixed(1), 'Semanas 1–4'],
+      ['Lavado sustrato Plan 2', (p2.lavadoM3Dia || 0).toFixed(1), `Días 1–${p2.lavadoDias}`],
+      ['Consumo pico combinado', calc.peakCombinado.toFixed(1), 'Fase crítica'],
     ],
-    columnStyles: { 0: { cellWidth: CW - 26 - 26 - 36 }, 1: { halign: 'right', cellWidth: 26 }, 2: { halign: 'right', cellWidth: 26 }, 3: { cellWidth: 36 } },
+    columnStyles: { 0: { cellWidth: CW - 30 - 40 }, 1: { halign: 'right', cellWidth: 30 }, 2: { cellWidth: 40 } },
     headColor: BLUE,
     didParseCell: (d) => {
       if (d.section === 'body' && d.row.index >= 4) { d.cell.styles.fontStyle = 'bold'; }
     },
   });
   paragraph(
-    calc.margen >= 0
-      ? `Capacidad suficiente: el pico combinado (${calc.peakCombinado.toFixed(1)} m³/día) deja ${calc.margen.toFixed(1)} m³/día de margen sobre los ${cap} m³/día instalados. Recomendación: ejecutar el lavado de sustrato de ambos planes en turno nocturno (10 PM – 4 AM) durante los primeros días.`
-      : `Déficit: el pico combinado (${calc.peakCombinado.toFixed(1)} m³/día) supera la capacidad instalada (${cap} m³/día) en ${Math.abs(calc.margen).toFixed(1)} m³/día. Se requiere escalonar riego y lavado.`,
-    { color: calc.margen >= 0 ? VERDE : RED, bold: true }
+    `Consumo pico combinado de ${calc.peakCombinado.toFixed(1)} m³/día (Plan 1: ${calc.peakP1.toFixed(1)} m³/día · Plan 2: ${calc.peakP2.toFixed(1)} m³/día). Recomendación: ejecutar el lavado de sustrato de ambos planes en turno nocturno (10 PM – 4 AM) durante los primeros días.`,
+    { color: VERDE, bold: true }
   );
 
   // ══ 6. COSTOS ════════════════════════════════════════════════════════════════
@@ -408,7 +404,7 @@ export async function generateReportePDF({ data, calc, proximosPasos = [], alert
       ['Ejecución en campo', `Avance físico promedio de ${calc.avancePromedioBloques}% en ${calc.totalBloques} bloques. ${calc.bloquesListos > 0 ? `${calc.bloquesListos} listo(s) para siembra` : 'Ningún bloque está 100% listo aún'} y ${calc.bloquesConAlerta.length} en adecuación.`],
       ['Ruta crítica: sustrato', `Solo el ${calc.pctBolsas}% del Plan 1 tiene bolsas (${fmtNum(calc.bolsasDisp)} de ${fmtNum(calc.bolsasReq)}). Faltan comprar 56.314 bolsas y 24.314 unidades de sustrato (656.478 L de coco).`],
       ['Compromiso financiero', `Costos totales por ${fmtCOP(calc.totalCostos)} COP, de los cuales ${fmtCOP(calc.costosPendientes)} están pendientes de avisar a tesorería.`],
-      ['Viabilidad hídrica', calc.margen >= 0 ? `Capacidad suficiente: pico ${calc.peakCombinado.toFixed(1)} m³/día con ${calc.margen.toFixed(1)} m³/día de margen. ${calc.decisAbiertas.length} decisión(es) y ${calc.riesgosAlto.length} riesgo(s) de impacto alto abiertos.` : `Déficit hídrico de ${Math.abs(calc.margen).toFixed(1)} m³/día en el pico. ${calc.decisAbiertas.length} decisión(es) y ${calc.riesgosAlto.length} riesgo(s) de impacto alto abiertos.`],
+      ['Consumo hídrico', `Consumo pico combinado de ${calc.peakCombinado.toFixed(1)} m³/día (Plan 1: ${calc.peakP1.toFixed(1)} · Plan 2: ${calc.peakP2.toFixed(1)} m³/día). ${calc.decisAbiertas.length} decisión(es) y ${calc.riesgosAlto.length} riesgo(s) de impacto alto abiertos.`],
     ],
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 42 }, 1: { cellWidth: CW - 42 } },
     headColor: CARBON,
