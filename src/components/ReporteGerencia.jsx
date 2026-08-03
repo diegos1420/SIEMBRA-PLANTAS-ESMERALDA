@@ -68,9 +68,8 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
 
     // Costos
     const totalCostos = costos.reduce((s, c) => s + (c.montoCOP || 0), 0);
-    const costosPendientes = costos.filter(c => c.estadoFlujoCaja === 'PENDIENTE').reduce((s, c) => s + (c.montoCOP || 0), 0);
-    const costosAvisados = costos.filter(c => c.estadoFlujoCaja === 'AVISADO').reduce((s, c) => s + (c.montoCOP || 0), 0);
-    const costosCriticos = costos.filter(c => c.esCritico && c.estadoFlujoCaja === 'PENDIENTE');
+    const costosCriticos = costos.filter(c => c.esCritico);
+    const montoCriticos = costosCriticos.reduce((s, c) => s + (c.montoCOP || 0), 0);
 
     // Insumos
     const insumosConFaltante = insumos.filter(i => {
@@ -101,7 +100,7 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
       totalBloques, bloquesListos, bloquesConAlerta, bloqueStats, avancePromedioBloques,
       total27L, total3L, pct27L, pct3L, capP1Total, capP2Total,
       peakP1, peakP2, peakCombinado, consumoBloquesRegistrado,
-      totalCostos, costosPendientes, costosAvisados, costosCriticos,
+      totalCostos, costosCriticos, montoCriticos,
       insumosConFaltante, insumosOk,
       tareasPendientes, tareasAlta,
       decisAbiertas, riesgosAbiertos, riesgosAlto,
@@ -117,7 +116,7 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
     if (calc.bolsasFaltantes > 0)
       alerts.push({ tipo: 'sustrato', msg: `Déficit de ${fmtNum(calc.bolsasFaltantes)} bolsas 27L — solo ${calc.pctBolsas}% del Plan 1 tiene sustrato`, nivel: 'alto' });
     if (calc.costosCriticos.length > 0)
-      alerts.push({ tipo: 'costos', msg: `${calc.costosCriticos.length} costo(s) críticos PENDIENTES de avisar a tesorería`, nivel: 'alto' });
+      alerts.push({ tipo: 'costos', msg: `${calc.costosCriticos.length} costo(s) marcados como críticos por su magnitud financiera`, nivel: 'alto' });
     if (calc.riesgosAlto.length > 0)
       alerts.push({ tipo: 'riesgos', msg: `${calc.riesgosAlto.length} riesgo(s) de impacto ALTO abiertos`, nivel: 'alto' });
     return alerts;
@@ -143,13 +142,6 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
         prioridad: 'ALTA',
         texto: `Completar la infraestructura de los ${calc.bloquesConAlerta.length} bloque(s) en adecuación (avance promedio ${calc.avancePromedioBloques}%); priorizar Estructuras, Riostras y Antiheladas.`,
         resp: 'Campo / Infraestructura'
-      });
-    }
-    if (calc.costosCriticos.length > 0) {
-      pasos.push({
-        prioridad: 'MEDIA',
-        texto: `Notificar a Tesorería los ${calc.costosCriticos.length} costo(s) críticos pendientes (${fmtCOP(calc.costosPendientes)} COP) para no descalzar el flujo de caja.`,
-        resp: 'Financiera / Tesorería'
       });
     }
     if (calc.decisAbiertas.length > 0) {
@@ -657,21 +649,16 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
         </h2>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mb-4 text-xs pdf-avoid-break">
+      <div className="grid grid-cols-2 gap-3 mb-4 text-xs pdf-avoid-break">
         <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-center">
           <span className="text-gray-500 text-[10px] uppercase block">Total registrado</span>
           <strong className="text-xl font-display text-brand-carbon">{fmtCOP(calc.totalCostos)}</strong>
           <span className="text-gray-400 block">COP</span>
         </div>
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-center">
-          <span className="text-gray-500 text-[10px] uppercase block">Pendiente avisar</span>
-          <strong className="text-xl font-display text-red-700">{fmtCOP(calc.costosPendientes)}</strong>
-          <span className="text-red-500 block">a tesorería</span>
-        </div>
-        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-center">
-          <span className="text-gray-500 text-[10px] uppercase block">Avisado/en presupuesto</span>
-          <strong className="text-xl font-display text-emerald-700">{fmtCOP(calc.costosAvisados)}</strong>
-          <span className="text-emerald-600 block">en flujo</span>
+          <span className="text-gray-500 text-[10px] uppercase block">Costos Críticos</span>
+          <strong className="text-xl font-display text-red-700">{fmtCOP(calc.montoCriticos)}</strong>
+          <span className="text-red-500 block">{calc.costosCriticos.length} concepto(s)</span>
         </div>
       </div>
 
@@ -681,23 +668,17 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
             <th className="p-2">Concepto</th>
             <th className="p-2">Propietario</th>
             <th className="p-2 text-right">Monto COP</th>
-            <th className="p-2">Estado</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
           {costos.map(c => (
-            <tr key={c.id} className={c.esCritico && c.estadoFlujoCaja === 'PENDIENTE' ? 'bg-red-50/50 font-semibold' : ''}>
+            <tr key={c.id} className={c.esCritico ? 'bg-red-50/50 font-semibold' : ''}>
               <td className="p-2 text-brand-carbon">
                 <span>{c.concepto}</span>
                 {c.esCritico && <span className="inline-block mt-1 ml-1.5 px-1 py-0.5 text-[9px] bg-red-600 text-white font-extrabold rounded align-middle">CRÍTICO</span>}
               </td>
               <td className="p-2 text-gray-500">{c.propietario}</td>
               <td className="p-2 text-right font-bold text-brand-carbon">{fmtCOPFull(c.montoCOP)}</td>
-              <td className="p-2">
-                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${c.estadoFlujoCaja === 'PENDIENTE' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                  {c.estadoFlujoCaja}
-                </span>
-              </td>
             </tr>
           ))}
         </tbody>
@@ -816,8 +797,10 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
             <span className="font-bold text-brand-carbon uppercase text-[10px]">Compromiso financiero</span>
           </div>
           <p className="text-gray-600 leading-relaxed">
-            Costos totales por <strong className="text-brand-carbon">{fmtCOP(calc.totalCostos)} COP</strong>, de los cuales
-            {' '}<strong className="text-red-700">{fmtCOP(calc.costosPendientes)}</strong> están pendientes de avisar a tesorería.
+            Costos totales por <strong className="text-brand-carbon">{fmtCOP(calc.totalCostos)} COP</strong>
+            {calc.costosCriticos.length > 0 && (
+              <>, de los cuales <strong className="text-red-700">{fmtCOP(calc.montoCriticos)}</strong> corresponden a {calc.costosCriticos.length} costo(s) crítico(s).</>
+            )}
           </p>
         </div>
 
@@ -939,7 +922,7 @@ export default function ReporteGerencia({ data, planVersion, helperCalculations 
               {
                 label: 'Costos Totales', icon: DollarSign,
                 value: fmtCOP(calc.totalCostos),
-                sub: `Pendientes: ${fmtCOP(calc.costosPendientes)}`,
+                sub: calc.costosCriticos.length > 0 ? `Críticos: ${fmtCOP(calc.montoCriticos)}` : 'Sin costos críticos',
                 color: 'text-amber-300'
               },
               {

@@ -179,7 +179,7 @@ export async function generateReportePDF({ data, calc, proximosPasos = [], alert
   const kpis = [
     { label: 'Meta Total Plantas', value: fmtNum(meta.totalPlantasObjetivo), sub: `P1: ${fmtNum(meta.plan1Objetivo)} + P2: ${fmtNum(meta.plan2Objetivo)}`, color: VERDE },
     { label: 'Bloques Listos', value: `${calc.bloquesListos} / ${calc.totalBloques}`, sub: `Avance promedio ${calc.avancePromedioBloques}%`, color: CARBON },
-    { label: 'Costos Totales', value: `${fmtCOP(calc.totalCostos)} COP`, sub: `Pendientes: ${fmtCOP(calc.costosPendientes)}`, color: OCRE },
+    { label: 'Costos Totales', value: `${fmtCOP(calc.totalCostos)} COP`, sub: calc.costosCriticos.length > 0 ? `Críticos: ${fmtCOP(calc.montoCriticos)}` : 'Sin costos críticos', color: OCRE },
     { label: 'Consumo Hídrico Pico', value: `${calc.peakCombinado.toFixed(0)} m³/día`, sub: `P1: ${calc.peakP1.toFixed(1)} · P2: ${calc.peakP2.toFixed(1)} m³/día`, color: BLUE },
   ];
   const kgap = 4;
@@ -351,17 +351,16 @@ export async function generateReportePDF({ data, calc, proximosPasos = [], alert
   );
 
   // ══ 6. COSTOS ════════════════════════════════════════════════════════════════
-  sectionHeader(6, 'Costos & Flujo de Caja', OCRE);
-  paragraph(`Costos totales por ${fmtCOP(calc.totalCostos)} COP · Pendiente de avisar a tesorería: ${fmtCOP(calc.costosPendientes)} · Avisado / en presupuesto: ${fmtCOP(calc.costosAvisados)}.`);
+  sectionHeader(6, 'Costos', OCRE);
+  paragraph(`Costos totales por ${fmtCOP(calc.totalCostos)} COP${calc.costosCriticos.length > 0 ? ` · Costos críticos: ${fmtCOP(calc.montoCriticos)} (${calc.costosCriticos.length} concepto(s))` : ''}.`);
   table({
-    head: [['Concepto', 'Propietario', 'Monto COP', 'Estado']],
+    head: [['Concepto', 'Propietario', 'Monto COP']],
     body: costos.map((c) => [
       c.esCritico ? `${c.concepto}  [CRÍTICO]` : c.concepto,
       c.propietario,
       fmtCOPFull(c.montoCOP),
-      c.estadoFlujoCaja,
     ]),
-    columnStyles: { 0: { cellWidth: CW - 30 - 32 - 28 }, 1: { cellWidth: 30 }, 2: { halign: 'right', cellWidth: 32 }, 3: { cellWidth: 28, halign: 'center' } },
+    columnStyles: { 0: { cellWidth: CW - 30 - 32 }, 1: { cellWidth: 30 }, 2: { halign: 'right', cellWidth: 32 } },
     headColor: OCRE,
   });
 
@@ -403,7 +402,7 @@ export async function generateReportePDF({ data, calc, proximosPasos = [], alert
     body: [
       ['Ejecución en campo', `Avance físico promedio de ${calc.avancePromedioBloques}% en ${calc.totalBloques} bloques. ${calc.bloquesListos > 0 ? `${calc.bloquesListos} listo(s) para siembra` : 'Ningún bloque está 100% listo aún'} y ${calc.bloquesConAlerta.length} en adecuación.`],
       ['Ruta crítica: sustrato', `Solo el ${calc.pctBolsas}% del Plan 1 tiene bolsas (${fmtNum(calc.bolsasDisp)} de ${fmtNum(calc.bolsasReq)}). Faltan comprar 56.314 bolsas y 24.314 unidades de sustrato (656.478 L de coco).`],
-      ['Compromiso financiero', `Costos totales por ${fmtCOP(calc.totalCostos)} COP, de los cuales ${fmtCOP(calc.costosPendientes)} están pendientes de avisar a tesorería.`],
+      ['Compromiso financiero', `Costos totales por ${fmtCOP(calc.totalCostos)} COP${calc.costosCriticos.length > 0 ? `, de los cuales ${fmtCOP(calc.montoCriticos)} corresponden a ${calc.costosCriticos.length} costo(s) crítico(s)` : ''}.`],
       ['Consumo hídrico', `Consumo pico combinado de ${calc.peakCombinado.toFixed(1)} m³/día (Plan 1: ${calc.peakP1.toFixed(1)} · Plan 2: ${calc.peakP2.toFixed(1)} m³/día). ${calc.decisAbiertas.length} decisión(es) y ${calc.riesgosAlto.length} riesgo(s) de impacto alto abiertos.`],
     ],
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 42 }, 1: { cellWidth: CW - 42 } },
